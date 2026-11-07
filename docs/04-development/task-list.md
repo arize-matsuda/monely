@@ -28,8 +28,8 @@
 
 | | |
 | --- | --- |
-| **進行中のマイルストーン** | **M1 完了（2026-11-07）。次は M2（認証と世帯）** |
-| **次にやること** | M2-1 環境変数の読み取りヘルパー |
+| **進行中のマイルストーン** | **M2（実装は完了。マジックリンクの実地確認が残り）** |
+| **次にやること** | M2-15 実際にログインして AC-1 / AC-2 / AC-3 / AC-11 を確認（**手作業**。メール受信が必要） |
 | **方針変更** | 2026-11-07 に認可を RLS からアプリ層に移した → [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) |
 | **ブロッカー** | なし |
 
@@ -165,31 +165,55 @@ Supabase は DB の上に PostgREST（`/rest/v1/...`）を自動で立てる。�
 
 ## M2 — 認証と世帯
 
+実装は完了。**マジックリンクの実地確認（メール受信を伴う）が残り。**
+
 ### 未着手
 
-- [ ] M2-1 `src/lib/supabase/env.ts`（環境変数の読み取り）
-- [ ] M2-2 `src/lib/supabase/server.ts` / `client.ts`
-- [ ] M2-3 `src/proxy.ts`（セッション更新。**`setAll` の第 2 引数のヘッダを設定する**）
-- [ ] M2-4 `src/lib/types.ts`（`Me`, `Member`, `ActionResult`, `ActionError`）
-- [ ] M2-5 `src/lib/auth.ts`（`getMe` / `requireUser` / `requireMember`）
-- [ ] M2-6 `src/lib/validation.ts`（検証ヘルパーの土台）
-- [ ] M2-7 `/login` 画面
-- [ ] M2-8 `sendMagicLink` アクション（**登録有無を漏らさない**）
-- [ ] M2-9 `/auth/callback` Route Handler（失敗時の表示を含む）
-- [ ] M2-10 `/setup` 画面
-- [ ] M2-11 `createHousehold` / `joinHousehold` アクション
-- [ ] M2-12 `(app)/layout.tsx`（振り分け + `export const instant = false`）
-- [ ] M2-13 `signOut` アクション
-- [ ] M2-14 仮のホーム画面
-- [ ] M2-15 受入条件 AC-1, AC-2, AC-3, AC-11 を実施
-- [ ] M2-16 **受入条件 AC-9（RLS の侵入確認）を実施**
-- [ ] M2-17 `pnpm lint` / `pnpm build` を通してコミット
+- [ ] M2-15 実際にログインして受入条件を確認（**手作業**）
+  - [ ] AC-1 マジックリンクでログインできる。閉じて開き直してもログインしたまま
+  - [ ] AC-2 `/setup` で世帯を作れて、初期カテゴリ 18 件が入る
+  - [ ] AC-3 2 つ目のアカウントが招待コードで同じ世帯に参加できる
+  - [ ] AC-11 世帯未所属で `/`、`/setup` 以外を開くと `/setup` に飛ぶ
+- [ ] M2-16 [認可の確認](../03-guidelines/testing-strategy.md#42-認可の確認毎回実施)（AC-9）。別世帯を作って実施
+- [ ] M2-17 `pnpm lint` / `pnpm build` を通してコミット（実装分はコミット済み）
 
 ### 完了
 
-（なし）
+- [x] M2-1 `src/lib/supabase/env.ts`（環境変数の読み取り）（2026-11-08）
+- [x] M2-2 `src/lib/supabase/server.ts` / `client.ts`（**認証のみに使う**）（2026-11-08）
+- [x] M2-3 `src/proxy.ts`（セッション更新。`setAll` の第 2 引数のヘッダを設定、matcher で静的ファイルを除外）（2026-11-08）
+- [x] M2-4 `src/lib/types.ts`（`Me`, `Member`, `ActionResult`, `ok` / `fail` / `failUnexpected`）（2026-11-08）
+- [x] M2-5 `src/lib/auth.ts`（`getMe` / `requireUser` / `requireMember`）+ `src/lib/data/profile.ts`（初回ログイン時に `Profile` を作る）（2026-11-08）
+- [x] M2-6 `src/lib/validation.ts`（テキスト・メール・招待コード・金額。**全角数字の正規化を含む**）（2026-11-08）
+- [x] M2-7 `/login` 画面（**公開ページなので静的シェルを保つ**）（2026-11-08）
+- [x] M2-8 `sendMagicLink` アクション（登録有無を漏らさない）（2026-11-08）
+- [x] M2-9 `/auth/callback` Route Handler（`exchangeCodeForSession` → 振り分け、失敗時は `/login?error=1`）（2026-11-08）
+- [x] M2-10 `/setup` 画面（世帯を作る / 招待コードで参加する）（2026-11-08）
+- [x] M2-11 `createHousehold` / `joinHousehold` アクション + DAL（`$transaction` で世帯作成 + 初期カテゴリ 18 件 + 所属更新）（2026-11-08）
+- [x] M2-12 `(app)/layout.tsx`（振り分け + `export const instant = false`）（2026-11-08）
+- [x] M2-13 `signOut` アクション（2026-11-08）
+- [x] M2-14 仮のホーム画面（世帯名・招待コード・メンバー・ログアウト）（2026-11-08）
+- [x] M2-18 `src/app/page.tsx` を削除（`(app)/page.tsx` に置き換え）（2026-11-08）
+- [x] M2-19 UI の下地（`components/ui/button.tsx`, `field.tsx`）（2026-11-08）
 
----
+### M2 で分かったこと
+
+| 事項 | 内容 |
+| --- | --- |
+| **公開ページは `instant = false` にしない方がよい** | `/login` は `searchParams`（`?error=1`）を読むため最初はビルドが落ちた。`instant = false` で逃げる代わりに、エラー通知だけを `<Suspense>` に入れた。結果 `/login` は **Partial Prerender**（静的シェル + ストリーミング）になり、公開ページとして望ましい形になった |
+| `searchParams` は await せず子に渡す | ページ本体を `async` にせず、`searchParams` の Promise を `<Suspense>` 内の子コンポーネントに渡して、そこで await する |
+| **`Profile` は `onDelete: SetNull` なので世帯を消しても残る** | 接続確認で作ったプロフィールが本番 DB に残っていた。削除済み。**検証データは世帯だけ消しても片付かない**（NFR-O3） |
+| `matcher` 無しの Proxy は静的ファイルにも走る | `_next` と拡張子付きファイルを除外する正規表現を書いた |
+| Proxy は Node.js ランタイム既定（Next 16） | `runtime` の指定はできない（指定するとエラー） |
+
+### 設計上の例外を 1 つ作った
+
+`src/lib/data/profile.ts` の `findOrCreateProfile(userId, email)` は、**ADR-0005 約束 B（世帯 ID を引数で受け取らない）の唯一の例外**。身元を確立するブートストラップなので、`requireMember()` から世帯 ID を得ることができない（循環する）。
+
+安全である理由をファイル内のコメントに明記した。
+- 渡される `userId` は `supabase.auth.getUser()` がサーバー側で検証した値だけ
+- `userId` に一致する 1 行しか読まない／作らない
+- 他のテーブルには一切触れない
 
 ## M3 — 記録と一覧（v1 の本体）
 
@@ -304,6 +328,16 @@ v1 を 1 か月使ってから判断する。候補は [プロダクト要件 §
   - 単純クエリ OK / `include` でリレーション取得 OK / **`$transaction` OK** / CHECK 制約の拒否 OK / cascade delete OK
   - `occurredOn` は `2026-11-07T00:00:00.000Z`。JST では UTC 整形とローカル整形がどちらも「11月7日」になる（**負のオフセット環境なら前日になる。UTC 固定が必要**）
 - 残課題: なし
+
+### M2 確認結果（2026-11-08、実装分のみ）
+
+- `pnpm lint`: OK / `pnpm build`: OK
+- ルートの種別: `/` と `/setup` と `/auth/callback` が Dynamic、`/login` が **Partial Prerender**、Proxy が登録済み
+- 未ログインでのガード: `/` → 307 `/login`、`/setup` → 307 `/login`
+- `/auth/callback`（code 無し）→ 307 `/login?error=1`
+- `/login` の表示: title・ラベル・送信ボタン・説明文すべて出力。`?error=1` のときだけエラー通知が出る
+- 未ログインでプロフィールが作られないことを確認（DB は空）
+- **未確認**: マジックリンクの実地確認（メール受信が必要）、AC-9
 
 ### M1 追加確認（2026-11-08）
 
