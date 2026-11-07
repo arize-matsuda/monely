@@ -43,3 +43,6 @@ next-env.d.ts
 
 # prisma（生成物。pnpm prisma generate で作る）
 /src/generated/
+
+# 開発モードのメール出力（確認リンクの控え）
+.dev-mail.log

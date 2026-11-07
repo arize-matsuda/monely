@@ -37,6 +37,8 @@ export const auth = betterAuth({
   appName: "Monely",
   baseURL,
   secret: requiredEnv("BETTER_AUTH_SECRET"),
+  // callbackURL の検証に使う。自分のオリジン以外へは飛ばさない
+  trustedOrigins: [baseURL],
 
   database: prismaAdapter(prisma, { provider: "postgresql" }),
 
