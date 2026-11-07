@@ -23,6 +23,10 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
             パスワードを忘れた方は{" "}
             <AuthLink href="/login/link">ログインリンクを受け取る</AuthLink>
           </p>
+          <p>
+            確認メールが届かない方は{" "}
+            <AuthLink href="/login/verify">確認メールを再送する</AuthLink>
+          </p>
         </>
       }
     >

@@ -177,6 +177,19 @@ export type Member = Me & { householdId: string };
 | 注意 | **登録済みかどうかを結果に出さない**（FR-A9）。Supabase は既存のアドレスに何も送らずに成功を返す |
 | 対応要件 | FR-A2, FR-A3 |
 
+#### `resendVerificationEmail(prev, formData)`
+
+| | |
+| --- | --- |
+| 入力 | `email` |
+| 認証 | 不要 |
+| 処理 | `auth.api.sendVerificationEmail({ body: { email, callbackURL: "/" } })` |
+| 成功 | `{ ok: true, data: { email } }` |
+| 注意 | **登録済み／確認済みかどうかを出さない**（FR-A9） |
+| 対応要件 | FR-A13 |
+
+未確認のままログインを試した場合も、`emailVerification.sendOnSignIn` により自動で再送される。
+
 #### `sendMagicLink(prev, formData)`
 
 | | |

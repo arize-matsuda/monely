@@ -208,6 +208,7 @@ Supabase は DB の上に PostgREST（`/rest/v1/...`）を自動で立てる。�
 - [x] M2-24 `pnpm db:deploy` で `0003_better_auth` を適用（2026-11-08、開発者が実行）
 - [x] M2-25 better-auth の 4 テーブルを確認。user 1 件、account 1 件（パスワードあり）（2026-11-08）
 - [x] M2-27 **開発モードのメール出力を直した**（2026-11-08）
+- [x] M2-28 確認メールの再送手段を用意（`sendOnSignIn: true` と `/login/verify`）（2026-11-08）
 - [x] M2-26 **認証基盤を better-auth に移行**（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)）（2026-11-08）
   - `src/lib/email.ts`（Resend / 開発時はコンソール）、`src/lib/auth/server.ts`
   - `src/app/api/auth/[...all]/route.ts`、`src/lib/auth.ts` と `src/actions/auth.ts` を書き換え
@@ -281,6 +282,12 @@ Supabase は DB の上に PostgREST（`/rest/v1/...`）を自動で立てる。�
 `trustedOrigins: [baseURL]` も明示した（callbackURL の検証を自分のオリジンに限る）。
 
 **教訓**: 開発者が見る出力を、こちらのバックグラウンドプロセスに握らせてはいけない。長時間動かす必要があるものは開発者自身に起動してもらう。
+
+#### 確認メールの再送手段が無かった
+
+最初のリンクを逃すと入れなくなる状態だった。`emailVerification.sendOnSignIn: true` を設定し（ログイン試行時に自動再送）、`/login/verify`（メールアドレスだけで再送）も用意した。
+
+**開発環境ではメールは送られない。** `RESEND_API_KEY` が未設定なら、リンクは dev サーバーのターミナルと `.dev-mail.log` に出る。これは意図した設計だが、説明不足で開発者を待たせた。
 
 ### M2 で見つけて直した不具合
 

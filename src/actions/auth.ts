@@ -28,7 +28,8 @@ function messageFor(error: APIError): string | null {
     case "INVALID_PASSWORD":
       return "メールアドレスまたはパスワードが正しくありません";
     case "EMAIL_NOT_VERIFIED":
-      return "メールアドレスの確認が済んでいません。確認メールのリンクを開いてください";
+      // sendOnSignIn: true なので、この時点で確認リンクが再送されている
+      return "メールアドレスの確認が済んでいません。確認メールを再送しました。リンクを開いてください";
     case "PASSWORD_TOO_SHORT":
     case "PASSWORD_TOO_LONG":
       return "このパスワードは使えません。別のものを入力してください";
@@ -236,4 +237,45 @@ export async function updatePassword(
   }
 
   return ok();
+}
+
+/**
+ * 確認メールを再送する（FR-A2）。
+ *
+ * 最初のリンクを逃した／期限切れになった場合の導線。
+ * ログイン試行時にも自動で再送される（emailVerification.sendOnSignIn）が、
+ * パスワードが分からない状態でも再送できるようにここも用意する。
+ *
+ * **登録済みかどうかを結果に出さない**（FR-A9）。
+ */
+export async function resendVerificationEmail(
+  _prev: ActionResult<{ email: string }> | null,
+  formData: FormData,
+): Promise<ActionResult<{ email: string }>> {
+  const parsed = parseEmail(formData.get("email"));
+  if (!parsed.ok) return parsed;
+  const email = parsed.data;
+
+  try {
+    await auth.api.sendVerificationEmail({
+      body: { email, callbackURL: "/" },
+      headers: await headers(),
+    });
+  } catch (error) {
+    if (error instanceof APIError) {
+      const code = String(error.body?.code ?? "");
+      console.error("[resendVerificationEmail]", code, error.message);
+      if (code === "TOO_MANY_REQUESTS") {
+        return fail(
+          "UNEXPECTED",
+          "試行回数が多すぎます。しばらく待ってからもう一度お試しください",
+        );
+      }
+      // 未登録・既に確認済みなどは表示を変えない
+    } else {
+      return failUnexpected("resendVerificationEmail", error);
+    }
+  }
+
+  return ok({ email });
 }

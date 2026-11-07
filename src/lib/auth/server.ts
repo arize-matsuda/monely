@@ -66,6 +66,9 @@ export const auth = betterAuth({
 
   emailVerification: {
     sendOnSignUp: true,
+    // 未確認のアカウントでログインを試したとき、確認リンクを再送する。
+    // これが無いと、最初のリンクを逃した利用者が入れなくなる（実際に詰まった）
+    sendOnSignIn: true,
     // 確認が済んだらそのままログインさせる（メール → パスワード入力の二度手間を避ける）
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
