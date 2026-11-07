@@ -329,7 +329,7 @@ Server Component のレンダリング中に `setAll` が呼ばれると書き�
 | 変数 | 用途 | 公開 |
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase プロジェクトの URL | ブラウザに出る |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 公開可能キー（anon / publishable） | ブラウザに出る |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key（`sb_publishable_...`）。旧称は anon キー | ブラウザに出る |
 
 - `.env.local` に置く。`.env.local.example` を例として置く（`.gitignore` の `.env*` に一致するため `!.env.local.example` の除外行が必要）。
 - **`service_role` キーは使わない**（NFR-S3）。

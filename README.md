@@ -50,7 +50,7 @@ pnpm dev                           # http://localhost:3000
 3. Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録する
 4. Project Settings → API の URL と公開キー（anon / publishable）を `.env.local` に設定する
 
-**`service_role` キーは使わない。** → [ADR-0002](./docs/05-decisions/ADR-0002-authorization-via-rls.md)
+キーはダッシュボードの **Publishable key**（`sb_publishable_...`）を使う。**Secret key（旧 `service_role`）は使わない。** → [ADR-0002](./docs/05-decisions/ADR-0002-authorization-via-rls.md)
 
 ### マイグレーションのローカル検証
 

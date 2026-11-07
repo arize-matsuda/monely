@@ -214,8 +214,8 @@ export async function createTransaction(formData: FormData) {
 | 置き場所 | `.env.local`。**コミットしない** |
 | 例の提供 | `.env.local.example` に変数名のみ（値は空） |
 | `.gitignore` | `.env*` で除外済み。`.env.local.example` は `!.env.local.example` で除外解除が必要 |
-| ブラウザに出てよいもの | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
-| **使わないもの** | `service_role` キー |
+| ブラウザに出てよいもの | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`（Publishable key。旧 anon キー） |
+| **使わないもの** | Secret key（旧 `service_role` キー） |
 
 ### 6.1 `service_role` キーを使わない
 

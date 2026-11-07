@@ -405,6 +405,8 @@ supabase/
 | 変数 | 用途 | 公開 |
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase プロジェクトの URL | ブラウザに出る |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 公開可能キー（anon / publishable） | ブラウザに出る |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key（`sb_publishable_...`）。旧称は anon キー | ブラウザに出る |
 
-**`service_role` キーは使わない。** 使うと RLS をバイパスできてしまい、この設計の前提が崩れる（NFR-S3）。
+**secret key（旧 `service_role` キー）は使わない。** 使うと RLS をバイパスできてしまい、この設計の前提が崩れる（NFR-S3）。
+
+> キーの名称は Supabase 側で変わった。現在のダッシュボードは **Publishable key**（公開可能、旧 anon）と **Secret key**（旧 service_role）と表示する。DB 側のロール名は `anon` / `authenticated` / `service_role` のままなので、RLS のポリシーや grant の記述は変わらない。

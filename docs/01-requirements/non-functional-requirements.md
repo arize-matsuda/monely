@@ -29,7 +29,7 @@ ID の体系: `NFR-S`=セキュリティ / `NFR-P`=性能 / `NFR-U`=使い勝手
 | --- | --- | --- |
 | NFR-S1 | **他の世帯のデータは一切見えない。** DB の行レベルセキュリティ（RLS）で担保し、アプリのクエリ条件には依存しない | 4 テーブルすべてで RLS が有効。[AC-9](./functional-requirements.md#ac-9-他世帯のデータが見えないfr-x2-br-12最重要) を手で実施 |
 | NFR-S2 | すべての Server Action / Route Handler の中で、認証と世帯の所属を毎回検証する。クライアントから来た世帯 ID は信用しない | 各アクションの先頭に検証がある（コードレビュー） |
-| NFR-S3 | Supabase の `service_role` キーをアプリに持ち込まない。公開可能キー（anon / publishable）のみを使う | `grep -r service_role src/` が 0 件 |
+| NFR-S3 | Supabase の Secret key（旧 `service_role` キー）をアプリに持ち込まない。Publishable key（旧 anon キー）のみを使う | `grep -rn 'service_role\|sb_secret' src/` が 0 件 |
 | NFR-S4 | キャッシュのキーやタグに個人情報（メールアドレス等）を入れない。平文で保存されるため | コードレビュー |
 | NFR-S5 | 認証 Cookie を含むレスポンスを CDN・プロキシにキャッシュさせない | `proxy.ts` で `setAll` の第 2 引数のヘッダを設定している |
 | NFR-S6 | 秘密情報をリポジトリにコミットしない | `.gitignore` で `.env*` を除外。`git log -p` に鍵が出ない |

@@ -33,7 +33,7 @@ Next.js 16（App Router）+ Supabase（PostgreSQL + Auth）+ Tailwind CSS v4 + B
 
 ## 絶対に守ること
 
-1. **`service_role` キーを使わない。** RLS を完全にバイパスする。公開キー（`NEXT_PUBLIC_SUPABASE_ANON_KEY`）だけを使う。
+1. **Secret key（旧 `service_role` キー）を使わない。** RLS を完全にバイパスする。Publishable key（`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`）だけを使う。
 2. **認可の本体は PostgreSQL の RLS。** アプリのクエリに書く `household_id` の条件はセキュリティではない（`docs/05-decisions/ADR-0002-authorization-via-rls.md`）。
 3. **すべての Server Action の 1 行目で認証と世帯を取得する。** Server Action は UI を経由せず直接 POST できる。
 4. **`household_id` と `created_by` をクライアントから受け取らない。** サーバー側で `auth.uid()` から引いた値を使う。
