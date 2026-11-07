@@ -76,6 +76,7 @@
 | [ADR-0003](./05-decisions/ADR-0003-one-household-per-user.md) | 1 ユーザー = 1 世帯のデータモデル（中間テーブルを作らない） | 採用 |
 | [ADR-0004](./05-decisions/ADR-0004-instant-false-for-authed-segments.md) | 認証後のセグメントを `instant = false` にする | 採用 |
 | [**ADR-0005**](./05-decisions/ADR-0005-authorization-in-app-layer.md) | **認可をアプリ層に置き、Prisma を採用する**（ADR-0002 を置き換え） | 採用 |
+| [ADR-0006](./05-decisions/ADR-0006-email-password-auth.md) | 認証をメール + パスワードにする（マジックリンクは再設定用に残す） | 採用 |
 
 ---
 

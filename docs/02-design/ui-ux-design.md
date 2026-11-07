@@ -24,7 +24,9 @@
 
 | ルート | 画面名 | 認証 | 世帯 | 役割 |
 | --- | --- | --- | --- | --- |
-| `/login` | ログイン | 不要 | — | メールアドレスを入力してログインリンクを送る |
+| `/login` | ログイン | 不要 | — | メールアドレスとパスワードでログイン |
+| `/signup` | アカウントを作る | 不要 | — | メールアドレスとパスワードで新規登録（確認メール 1 通） |
+| `/login/link` | ログインリンクを受け取る | 不要 | — | パスワードを忘れたときの導線 |
 | `/auth/callback` | 認証コールバック | 不要 | — | 画面なし。リンクのコードをセッションに交換して振り分ける |
 | `/setup` | 初回セットアップ | 必要 | 未所属 | 世帯を作る / 招待コードで参加する |
 | `/` | ホーム（月次一覧） | 必要 | 所属済 | 当月の合計と記録の一覧。**アプリの中心** |
@@ -32,7 +34,9 @@
 | `/transactions/[id]` | 記録の詳細・編集 | 必要 | 所属済 | 編集と削除 |
 | `/settings` | 設定 | 必要 | 所属済 | 世帯名、招待コード、メンバー、表示名、カテゴリ、ログアウト |
 
-下部タブ（ホーム / 記録する / 設定）は `/`、`/new`、`/settings` に表示する。`/login`、`/setup`、`/transactions/[id]` には表示しない。
+下部タブ（ホーム / 記録する / 設定）は `/`、`/new`、`/settings` に表示する。`/login`、`/signup`、`/login/link`、`/setup`、`/transactions/[id]` には表示しない。
+
+> 画面が 7 → 9 に増えた。「画面を増やさない」原則（§1-7）に対する意識的な例外。理由 → [ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)
 
 ---
 
@@ -42,9 +46,13 @@
 flowchart TD
     Start([アプリを開く]) --> Auth{ログイン済み?}
     Auth -- いいえ --> Login[/login ログイン/]
-    Login -- メール送信 --> Sent[送信しました表示]
-    Sent -- メール内のリンク --> Callback[/auth/callback/]
+    Login -- パスワードでログイン --> Auth
+    Login -- アカウントを作る --> Signup[/signup 新規登録/]
+    Signup -- 確認メール --> Callback[/auth/callback/]
+    Login -- パスワードを忘れた --> MagicLink[/login/link リンクを受け取る/]
+    MagicLink -- メール内のリンク --> Callback
     Callback --> Auth
+    Callback -- 失敗 --> Login
     Auth -- はい --> HasHousehold{世帯に所属?}
     HasHousehold -- いいえ --> Setup[/setup セットアップ/]
     Setup -- 世帯を作る --> Home
@@ -168,29 +176,49 @@ flowchart TD
 
 ```
 ┌─────────────────────────────┐
-│                             │
 │          Monely             │
 │      わが家の家計簿          │
 │                             │
 │  メールアドレス              │
+│  ┌─────────────────────┐    │  ← type=email
+│  │                     │    │     autoComplete="email"
+│  └─────────────────────┘    │
+│  パスワード                  │
+│  ┌─────────────────────┐    │  ← type=password
+│  │ ••••••••            │    │     autoComplete="current-password"
+│  └─────────────────────┘    │
 │  ┌─────────────────────┐    │
-│  │                     │    │  ← type=email, autoComplete="email"
+│  │      ログイン        │    │
 │  └─────────────────────┘    │
 │                             │
-│  ┌─────────────────────┐    │
-│  │  ログインリンクを送る  │    │
-│  └─────────────────────┘    │
-│                             │
-│  パスワードはありません。      │
-│  届いたメールのリンクを開くと   │
-│  ログインできます。           │
-│                             │
+│  はじめての方は              │
+│  アカウントを作る            │  ← /signup
+│  パスワードを忘れた方は       │
+│  ログインリンクを受け取る     │  ← /login/link
 └─────────────────────────────┘
 ```
 
-送信後は同じ画面を差し替えて「`xxx@example.com` にリンクを送りました。メールを確認してください」と表示する。**メールアドレスが登録済みかどうかは示さない**（FR-A6, NFR-S7）。
+- ログイン失敗時は「メールアドレスまたはパスワードが正しくありません」。**どちらが違うかは示さない**（FR-A8）。
+- `?error=1`（リンクからログインできなかった）のときは上部に通知を出し、パスワードでのログインを促す。
 
-リンクが無効・期限切れだった場合（`/login?error=1`）は、上部に「リンクが無効または期限切れです。もう一度お試しください」を出す。
+### 4.4.1 `/signup` アカウントを作る
+
+```
+┌─────────────────────────────┐
+│       アカウントを作る        │
+│  メールアドレス / パスワード   │
+│  パスワード（確認）           │  ← 打ち間違いで入れなくなるのを防ぐ
+│  ┌─────────────────────┐    │
+│  │   アカウントを作る    │    │
+│  └─────────────────────┘    │
+└─────────────────────────────┘
+```
+
+送信後は同じ画面を差し替えて「`xxx@example.com` に確認メールを送りました」と表示する。**登録済みかどうかは示さない**（FR-A9）。パスワードは 8 文字以上（`autoComplete="new-password"`）。
+
+### 4.4.2 `/login/link` ログインリンクを受け取る
+
+パスワードを忘れたときの導線。メールアドレスだけを入力して送信する。未登録のアドレスでも同じ表示にする（FR-A9）。入れた後は設定画面でパスワードを変更する（M4）。
 
 ### 4.5 `/setup` 初回セットアップ
 
@@ -394,6 +422,7 @@ M3 では `sort_order` 順で出し、M4 で使用頻度順に差し替える。
 
 | コンポーネント | 置き場所 | 種類 |
 | --- | --- | --- |
+| `AuthShell` | `components/ui/` | Server（`/login`, `/signup`, `/login/link` の共通枠） |
 | `BottomTabs` | `components/` | Server |
 | `MonthSwitcher` | `components/` | Server（Link で遷移） |
 | `MonthSummary` | `components/` | Server |
@@ -401,7 +430,7 @@ M3 では `sort_order` 順で出し、M4 で使用頻度順に差し替える。
 | `AmountInput` | `components/` | **Client**（入力状態を持つ） |
 | `KindTabs` | `components/` | **Client**（選択状態を持つ） |
 | `CategoryPicker` | `components/` | **Client** |
-| `Button` / `Field` / `ErrorText` | `components/ui/` | Server（汎用） |
+| `Button` / `Field` / `TextInput` / `FormError` | `components/ui/` | Server（汎用） |
 | `DeleteButton` | `components/` | **Client**（確認ダイアログ） |
 
 **既定は Server Component。** 操作の状態を持つものだけ `"use client"` にする（→ [アーキテクチャ §3.2](./architecture.md#32-server--client-の境界)）。

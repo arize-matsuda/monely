@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { AuthLink, AuthShell } from "@/components/ui/auth-shell";
 import { LoginForm } from "./login-form";
 
 export const metadata = { title: "ログイン | Monely" };
@@ -7,32 +8,33 @@ export const metadata = { title: "ログイン | Monely" };
  * ログイン画面。**公開ページなので静的シェルを保つ。**
  *
  * `?error=1`（リンクが無効・期限切れ）の通知だけが searchParams に依存するため、
- * そこだけ <Suspense> の内側に押し込む。ページ本体（見出しとフォーム）は
- * プリレンダリングされる。
+ * そこだけ <Suspense> の内側に押し込む。見出しとフォームはプリレンダリングされる。
  * → docs/05-decisions/ADR-0004-instant-false-for-authed-segments.md
  */
 export default function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
-    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col justify-center px-4 py-10">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-semibold tracking-tight">Monely</h1>
-        <p className="mt-1 text-muted">わが家の家計簿</p>
-      </div>
-
+    <AuthShell
+      footer={
+        <>
+          <p>
+            はじめての方は <AuthLink href="/signup">アカウントを作る</AuthLink>
+          </p>
+          <p>
+            パスワードを忘れた方は{" "}
+            <AuthLink href="/login/link">ログインリンクを受け取る</AuthLink>
+          </p>
+        </>
+      }
+    >
       <Suspense fallback={null}>
-        <LinkErrorNotice searchParams={searchParams} />
+        <LinkNotice searchParams={searchParams} />
       </Suspense>
-
       <LoginForm />
-
-      <p className="mt-8 text-xs leading-relaxed text-muted">
-        パスワードはありません。届いたメールのリンクを開くとログインできます。
-      </p>
-    </main>
+    </AuthShell>
   );
 }
 
-async function LinkErrorNotice({
+async function LinkNotice({
   searchParams,
 }: {
   searchParams: PageProps<"/login">["searchParams"];
@@ -40,12 +42,17 @@ async function LinkErrorNotice({
   const params = await searchParams;
   if (params.error === undefined) return null;
 
+  // 新規登録の確認リンクとマジックリンクの両方がここに来る。
+  // どちらも「リンクからセッションを作れなかった」状態なので、
+  // パスワードでのログインを促す文言にする。
+  // （確認リンクの場合、メールアドレスの確認自体は Supabase 側で完了している）
   return (
     <p
-      className="mb-4 rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-3 text-sm text-danger"
+      className="mb-4 rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-3 text-sm leading-relaxed text-danger"
       role="alert"
     >
-      リンクが無効か期限切れです。もう一度ログインリンクを送ってください。
+      リンクからログインできませんでした。期限切れか、別のブラウザで開いた可能性があります。
+      パスワードでログインするか、もう一度お試しください。
     </p>
   );
 }

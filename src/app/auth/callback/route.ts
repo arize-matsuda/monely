@@ -3,13 +3,19 @@ import { getMe } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
- * マジックリンクのコールバック（FR-A2）。
+ * メールのリンクから戻ってくる口。**2 つの用途を共用する。**
+ *   1. 新規登録の確認リンク（FR-A2）
+ *   2. パスワードを忘れたときのログインリンク（FR-A6）
+ * どちらも PKCE なので ?code=... を受け取ってセッションに交換する。
  *
- * メールのリンクを開くと ?code=... 付きで戻ってくるので、
- * セッションに交換してから振り分ける。
- *
- * 失敗の扱い: メールクライアントがリンクを先読みしてコードを消費することがある。
- * その場合も /login?error=1 に戻し、「もう一度送る」導線を見せる。
+ * 失敗する主な原因:
+ *   - メールクライアントがリンクを先読みしてコードを消費した
+ *   - 登録したブラウザと別のブラウザでリンクを開いた（code verifier が無い）
+ *   - 期限切れ
+ * いずれも /login?error=1 に戻し、パスワードでのログインを促す。
+ * 新規登録の確認リンクの場合、**メールアドレスの確認自体は Supabase 側で
+ * 完了している**ので、パスワードでログインすれば入れる。
+ * → docs/05-decisions/ADR-0006-email-password-auth.md
  */
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");

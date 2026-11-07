@@ -114,7 +114,7 @@ flowchart LR
 | 4 | 認証ヘルパー（`getMe` / `requireUser` / `requireMember`）。**初回ログイン時に `Profile` を作る** | `src/lib/auth.ts`, `src/lib/data/profile.ts` |
 | 5 | 型定義（`Me`（`userId` と `profileId` を持つ）, `Member`, `ActionResult`） | `src/lib/types.ts` |
 | 6 | 検証ヘルパーの土台 | `src/lib/validation.ts` |
-| 7 | `/login`（メール入力 → マジックリンク送信、送信後の表示、エラー表示） | `src/app/login/page.tsx`, `src/actions/auth.ts` |
+| 7 | `/login`（メール + パスワード）、`/signup`（新規登録）、`/login/link`（パスワードを忘れたとき） | `src/app/login/`, `src/app/signup/`, `src/actions/auth.ts` |
 | 8 | `/auth/callback`（`exchangeCodeForSession` → 振り分け） | `src/app/auth/callback/route.ts` |
 | 9 | `/setup`（世帯を作る / 招待コードで参加する）。DAL に `createHouseholdForMe` / `joinHouseholdForMe`（`$transaction` + 初期カテゴリ 18 件 + 招待コード生成） | `src/app/setup/`, `src/actions/household.ts`, `src/lib/data/household.ts` |
 | 10 | `(app)` レイアウトでの振り分け + `export const instant = false` | `src/app/(app)/layout.tsx` |
@@ -125,7 +125,7 @@ flowchart LR
 
 | # | 条件 | 受入条件 |
 | --- | --- | --- |
-| 1 | マジックリンクでログインできる。閉じて開き直してもログインしたまま | AC-1 |
+| 1 | 新規登録 → 確認メール → パスワードでログインできる。閉じて開き直してもログインしたまま | AC-1 |
 | 2 | `/setup` で世帯を作れて、初期カテゴリ 18 件が入る | AC-2 |
 | 3 | 2 つ目のアカウントが招待コードで同じ世帯に参加できる | AC-3 |
 | 4 | 世帯未所属で `/`、`/new`、`/settings` を開くと `/setup` に飛ぶ | AC-11 |
@@ -134,8 +134,9 @@ flowchart LR
 ### 注意
 
 - `getUser()` を使う（`getSession()` を認可の判断に使わない）
-- マジックリンクが無効・期限切れの場合の表示を忘れない（メールクライアントの先読みでコードが消費される）
-- `/login` の応答を、登録済み・未登録で同一にする
+- リンクからログインできなかった場合の表示を忘れない（先読み・別ブラウザ・期限切れ）
+- ログイン失敗時にメールアドレスとパスワードのどちらが違うかを示さない
+- `signInWithOtp` に `shouldCreateUser: false` を渡す（リンク経由の新規登録を禁じる）
 
 ### 参照
 
@@ -199,7 +200,7 @@ flowchart LR
 | # | 内容 | 対象 |
 | --- | --- | --- |
 | 1 | 下部タブ（ホーム / 記録する / 設定）。セーフエリア対応 | `src/app/(app)/layout.tsx`, `src/components/bottom-tabs.tsx` |
-| 2 | `/settings`（世帯名の変更、招待コード、メンバー一覧、表示名の変更、ログアウト） | `src/app/(app)/settings/` |
+| 2 | `/settings`（世帯名の変更、招待コード、メンバー一覧、表示名の変更、**パスワードの変更**、ログアウト） | `src/app/(app)/settings/` |
 | 3 | カテゴリ管理（追加・改名・非表示） | `src/app/(app)/settings/`, `src/actions/categories.ts` |
 | 4 | カテゴリの並びを直近 30 日の使用頻度順に | `src/lib/data/transactions.ts` |
 | 5 | 日付の「今日 / 昨日」ショートカット | `src/app/(app)/new/` |

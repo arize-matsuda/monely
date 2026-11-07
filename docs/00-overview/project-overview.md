@@ -47,7 +47,7 @@
 
 | 分類 | 内容 |
 | --- | --- |
-| 認証 | メールのマジックリンク（パスワードなし） |
+| 認証 | メールアドレス + パスワード。パスワードを忘れたときはログインリンク |
 | 世帯 | 作成、招待コードによる参加、世帯名の変更、メンバー一覧 |
 | 収支の記録 | 支出・収入の登録／編集／削除（金額・日付・カテゴリ・支払者・メモ） |
 | 一覧 | 月単位の一覧、日付ごとのグループ化、前月・翌月への移動 |
@@ -91,7 +91,7 @@
 選定理由 → [ADR-0001 技術スタック](../05-decisions/ADR-0001-tech-stack.md)
 構成と責務 → [アーキテクチャ](../02-design/architecture.md)
 
-設計上の重要な判断は 5 本の ADR に記録してある → [05-decisions/](../05-decisions/)
+設計上の重要な判断は 6 本の ADR に記録してある → [05-decisions/](../05-decisions/)
 
 > **2026-11-07 に認可の方針を変更した。** DB の RLS からアプリ層（Data Access Layer）に移した。経緯と代償 → [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)
 
@@ -130,7 +130,8 @@ docs/
     ├── ADR-0002-authorization-via-rls.md          認可を RLS に置く（置き換え済み）
     ├── ADR-0003-one-household-per-user.md         1 ユーザー = 1 世帯
     ├── ADR-0004-instant-false-for-authed-segments.md  認証後は instant = false
-    └── ADR-0005-authorization-in-app-layer.md     認可をアプリ層に置き Prisma を採用
+    ├── ADR-0005-authorization-in-app-layer.md     認可をアプリ層に置き Prisma を採用
+    └── ADR-0006-email-password-auth.md            認証をメール + パスワードに
 ```
 
 ### 実装を始める前に必ず読むもの

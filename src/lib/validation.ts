@@ -113,3 +113,52 @@ export function parseAmount(
   }
   return ok(amount);
 }
+
+export const MIN_PASSWORD_LENGTH = 8;
+/** bcrypt の上限 */
+export const MAX_PASSWORD_LENGTH = 72;
+
+/**
+ * パスワード。長さだけを要求し、文字種は要求しない。
+ * 複雑さの要求は覚えにくいだけのパスワードを生みやすい。
+ * → docs/05-decisions/ADR-0006-email-password-auth.md
+ */
+export function parsePassword(
+  value: FormDataEntryValue | null,
+  field = "password",
+): ActionResult<string> {
+  const password = asString(value);
+  if (password.length === 0) {
+    return fail("VALIDATION", "パスワードを入力してください", field);
+  }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return fail(
+      "VALIDATION",
+      `パスワードは ${MIN_PASSWORD_LENGTH} 文字以上で入力してください`,
+      field,
+    );
+  }
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    return fail(
+      "VALIDATION",
+      `パスワードは ${MAX_PASSWORD_LENGTH} 文字以内で入力してください`,
+      field,
+    );
+  }
+  return ok(password);
+}
+
+/** 新規登録時の確認入力。打ち間違いで入れなくなるのを防ぐ */
+export function parsePasswordConfirmation(
+  password: string,
+  value: FormDataEntryValue | null,
+): ActionResult<string> {
+  if (asString(value) !== password) {
+    return fail(
+      "VALIDATION",
+      "確認用のパスワードが一致しません",
+      "passwordConfirmation",
+    );
+  }
+  return ok(password);
+}

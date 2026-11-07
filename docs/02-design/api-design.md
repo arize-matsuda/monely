@@ -105,7 +105,7 @@ export type ActionError = {
 
 | 事項 | 内容 |
 | --- | --- |
-| 方式 | Supabase Auth のマジックリンク（メール内のリンク、パスワードなし） |
+| 方式 | メールアドレス + パスワード（Supabase Auth）。パスワードを忘れたときはマジックリンク |
 | セッションの保持 | Cookie（`@supabase/ssr` が管理） |
 | トークンの更新 | `src/proxy.ts` で毎リクエスト時に実施 |
 | 認証の確認 | `supabase.auth.getUser()`（サーバー側で検証される） |
@@ -153,17 +153,40 @@ export type Member = Me & { householdId: string };
 
 ### 4.1 認証（`src/actions/auth.ts`）
 
-#### `sendMagicLink(formData)`
+#### `signIn(prev, formData)`
 
 | | |
 | --- | --- |
-| 入力 | `email: string` |
+| 入力 | `email`, `password` |
 | 認証 | 不要 |
-| 処理 | `supabase.auth.signInWithOtp({ email, options: { emailRedirectTo } })` |
-| 成功 | `{ ok: true, data: { email } }` → 画面を「送信しました」に差し替える |
-| エラー | `VALIDATION`（メール形式）/ `UNEXPECTED` |
-| 注意 | **メールアドレスが登録済みかどうかを結果に出さない**（FR-A6, NFR-S7）。Supabase 側のエラーも成功と同じ表示にする |
+| 処理 | `supabase.auth.signInWithPassword({ email, password })` |
+| 成功 | `redirect("/")` |
+| エラー | `VALIDATION` / `UNAUTHENTICATED`（「メールアドレスまたはパスワードが正しくありません」）/ `UNEXPECTED` |
+| 注意 | **どちらが違うかを示さない**（FR-A8） |
 | 対応要件 | FR-A1 |
+
+#### `signUp(prev, formData)`
+
+| | |
+| --- | --- |
+| 入力 | `email`, `password`（8 文字以上）, `passwordConfirmation` |
+| 認証 | 不要 |
+| 処理 | `supabase.auth.signUp({ email, password, options: { emailRedirectTo } })` |
+| 成功 | `{ ok: true, data: { email } }` → 「確認メールを送りました」に差し替える |
+| エラー | `VALIDATION`（形式・長さ・確認の不一致・`weak_password`）/ `UNEXPECTED` |
+| 注意 | **登録済みかどうかを結果に出さない**（FR-A9）。Supabase は既存のアドレスに何も送らずに成功を返す |
+| 対応要件 | FR-A2, FR-A3 |
+
+#### `sendMagicLink(prev, formData)`
+
+| | |
+| --- | --- |
+| 入力 | `email` |
+| 認証 | 不要 |
+| 処理 | `supabase.auth.signInWithOtp({ email, options: { emailRedirectTo, shouldCreateUser: false } })` |
+| 成功 | `{ ok: true, data: { email } }` → 「リンクを送りました」に差し替える |
+| 注意 | **登録済みかどうかを出さない**（FR-A9）。`shouldCreateUser: false` でリンク経由の新規登録を禁じる |
+| 対応要件 | FR-A6（パスワードを忘れたときの導線） |
 
 `emailRedirectTo` は `${origin}/auth/callback`。この URL を Supabase ダッシュボードの Redirect URLs に登録しておく必要がある。
 
@@ -174,7 +197,7 @@ export type Member = Me & { householdId: string };
 | 入力 | なし |
 | 認証 | 必要 |
 | 処理 | `supabase.auth.signOut()` → `redirect("/login")` |
-| 対応要件 | FR-A5 |
+| 対応要件 | FR-A7 |
 
 ### 4.2 世帯（`src/actions/household.ts`）
 
@@ -332,8 +355,9 @@ export function summarize(rows: TransactionRow[]): { expense: number; income: nu
 | 処理 | `supabase.auth.exchangeCodeForSession(code)` |
 | 成功 | 世帯があれば `/` へ、無ければ `/setup` へ 302 |
 | 失敗 | `/login?error=1` へ 302（画面に「リンクが無効または期限切れです」を表示） |
-| 対応要件 | FR-A2 |
+| 対応要件 | FR-A2（新規登録の確認）, FR-A6（ログインリンク） |
 
+- **2 つの用途を共用する。** 新規登録の確認リンクとログインリンクはどちらも PKCE なので同じ処理になる。
 - `code` が無い場合も失敗として扱う。
 - **メールクライアントがリンクを先読みしてコードを消費することがある。** 失敗時は「もう一度ログインリンクを送る」導線を出す。
 - Supabase ダッシュボード → Authentication → URL Configuration の **Redirect URLs に `http://localhost:3000/auth/callback` を登録する**。未登録だと弾かれる。

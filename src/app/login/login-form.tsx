@@ -1,38 +1,22 @@
 "use client";
 
 import { useActionState } from "react";
-import { sendMagicLink } from "@/actions/auth";
+import { signIn } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Field, FormError, TextInput } from "@/components/ui/field";
+import { errorFor, formErrorOf } from "@/components/ui/form-state";
 
 export function LoginForm() {
-  const [state, action, pending] = useActionState(sendMagicLink, null);
-
-  if (state?.ok) {
-    return (
-      <div className="flex flex-col gap-3">
-        <p className="rounded-xl border border-border bg-surface px-3.5 py-3 text-sm">
-          <strong className="font-medium">{state.data.email}</strong>{" "}
-          にログイン用のリンクを送りました。メールを確認してください。
-        </p>
-        <p className="text-xs text-muted">
-          届かない場合は迷惑メールフォルダを確認してください。
-        </p>
-      </div>
-    );
-  }
-
-  const fieldError =
-    state?.ok === false && state.error.field === "email"
-      ? state.error.message
-      : undefined;
-  const formError =
-    state?.ok === false && !state.error.field ? state.error.message : undefined;
+  const [state, action, pending] = useActionState(signIn, null);
 
   return (
     <form action={action} className="flex flex-col gap-4">
-      <FormError message={formError} />
-      <Field label="メールアドレス" htmlFor="email" error={fieldError}>
+      <FormError message={formErrorOf(state)} />
+      <Field
+        label="メールアドレス"
+        htmlFor="email"
+        error={errorFor(state, "email")}
+      >
         <TextInput
           id="email"
           name="email"
@@ -43,8 +27,21 @@ export function LoginForm() {
           placeholder="you@example.com"
         />
       </Field>
+      <Field
+        label="パスワード"
+        htmlFor="password"
+        error={errorFor(state, "password")}
+      >
+        <TextInput
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+        />
+      </Field>
       <Button type="submit" disabled={pending}>
-        {pending ? "送信中…" : "ログインリンクを送る"}
+        {pending ? "ログイン中…" : "ログイン"}
       </Button>
     </form>
   );
