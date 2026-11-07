@@ -24,9 +24,9 @@ flowchart TB
 
     subgraph Supabase["Supabase (クラウド)"]
         Auth["Supabase Auth<br/>マジックリンク"]
-        PG[("PostgreSQL<br/>+ RLS")]
-        RPC["RPC 関数<br/>create_household<br/>join_household"]
+        PG[("PostgreSQL<br/>制約のみ・認可なし")]
     end
+    DAL["src/lib/data/<br/>Prisma + 認可"]
 
     Browser --> Proxy
     Proxy --> SC
@@ -34,19 +34,17 @@ flowchart TB
     CC -- "フォーム送信" --> SA
     Browser -- "メールのリンク" --> RH
     RH --> Auth
-    SC -- "SELECT" --> PG
-    SA -- "INSERT/UPDATE/DELETE" --> PG
-    SA --> RPC
-    RPC --> PG
+    SC --> DAL
+    SA --> DAL
+    DAL -- "Prisma（Session pooler 5432）" --> PG
     Proxy -- "トークン更新" --> Auth
-    Auth --> PG
 ```
 
 ### 1.1 構成の要点
 
-- **バックエンドを別に作らない。** DB へのアクセスは Next.js のサーバー側（Server Component / Server Action）から Supabase クライアント経由で直接行う。REST API 層は作らない（→ [ADR-0001](../05-decisions/ADR-0001-tech-stack.md)）。
-- **権限は DB に置く。** 認可の本体は PostgreSQL の RLS。アプリ側の検証はその手前の二重化であって、代替ではない（→ [ADR-0002](../05-decisions/ADR-0002-authorization-via-rls.md)）。
-- **ブラウザから Supabase を直接叩かない。** 読み取りも変更もサーバー側に通す。ブラウザ用クライアントは認証の都合で用意するが、データ操作には使わない。
+- **バックエンドを別に作らない。** DB へのアクセスは Next.js のサーバー側から Prisma 経由で行う。REST API 層は作らない（→ [ADR-0001](../05-decisions/ADR-0001-tech-stack.md)）。
+- **認可はアプリ層（`src/lib/data/`）に置く。** DB は制約でデータの正しさを守るが、誰が見られるかは守らない（→ [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）。**最終防衛線が無いので、DAL が唯一の砦。**
+- **Supabase は DB と認証のホスト。** データアクセスに supabase-js は使わない（認証のみ）。ブラウザから DB を直接叩かない。
 
 ---
 
@@ -55,9 +53,11 @@ flowchart TB
 ```
 monely/
 ├── docs/                       設計ドキュメント（この文書群）
-├── supabase/
-│   └── migrations/             DB のマイグレーション SQL（連番）
-│       └── 0001_init.sql
+├── prisma/
+│   ├── schema.prisma           スキーマの正
+│   └── migrations/             Prisma Migrate が生成
+│       └── 0001_init/migration.sql
+├── prisma.config.ts            Prisma CLI の設定（.env.local を読む）
 ├── public/                     静的ファイル（PWA アイコンなど）
 └── src/
     ├── proxy.ts                Next.js 16 の Proxy（旧 Middleware）
@@ -84,12 +84,15 @@ monely/
     ├── components/             再利用する UI
     │   ├── ui/                 汎用（Button, Field, Sheet …）
     │   └── …                   ドメイン固有（TransactionRow, AmountInput …）
+    ├── generated/prisma/       Prisma Client（生成物。gitignore 済み）
     └── lib/
-        ├── supabase/
+        ├── supabase/           ★ 認証のみ。データアクセスには使わない
         │   ├── client.ts       ブラウザ用クライアント
         │   └── server.ts       サーバー用クライアント
-        ├── data/               読み取りクエリ（Server Component から呼ぶ）
+        ├── data/               ★ DB に触る唯一の場所。認可もここ
+        │   ├── db.ts           Prisma Client の生成口（外から import 禁止）
         │   ├── transactions.ts
+        │   ├── transactions.test.ts   認可テスト（必須）
         │   └── household.ts
         ├── auth.ts             現在のユーザーと世帯の取得・ガード
         ├── money.ts            金額の整形・パース
@@ -103,7 +106,7 @@ monely/
 | 置くもの | 置き場所 | 理由 |
 | --- | --- | --- |
 | 画面 | `src/app/**/page.tsx` | ルーティングと一致させる |
-| データの読み取り | `src/lib/data/*.ts` | 画面から SQL 的な記述を追い出し、同じクエリを使い回す |
+| DB へのアクセス（読み書き両方） | `src/lib/data/*.ts` | **認可をここに閉じ込める。** `prisma` を外から import しない（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) 約束 A） |
 | データの変更 | `src/actions/*.ts` | 変更の入口を一箇所にまとめ、認証確認の抜けを見つけやすくする |
 | 画面をまたいで使う UI | `src/components/` | |
 | その画面専用の UI | その画面のディレクトリ内（`_components/`） | 使われない場所に置かない |
@@ -117,9 +120,9 @@ monely/
 flowchart TD
     A["app/ 画面<br/>表示とルーティング"]
     B["actions/ 変更<br/>認証確認・検証・更新"]
-    C["lib/data/ 読み取り<br/>クエリ"]
+    C["lib/data/ DAL<br/>Prisma + 認可"]
     D["lib/ 純粋な関数<br/>money, month, validation"]
-    E["lib/supabase/ クライアント生成"]
+    E["lib/supabase/ 認証クライアント"]
     F[("Supabase")]
 
     A --> B
@@ -135,8 +138,8 @@ flowchart TD
 | 層 | 責務 | してはいけないこと |
 | --- | --- | --- |
 | `app/`（画面） | 表示、ルーティング、フォームの組み立て | DB への直接アクセス、業務ルールの実装 |
-| `actions/`（変更） | **認証と世帯の確認**、入力検証、DB の更新、キャッシュの更新、リダイレクト | 表示の組み立て、UI の状態管理 |
-| `lib/data/`（読み取り） | SELECT クエリと結果の型付け | 認可の判断（RLS に任せる）、変更操作 |
+| `actions/`（変更） | **認証と世帯の確認**、入力検証、DAL の呼び出し、キャッシュの更新、リダイレクト | `prisma` を直接触ること、表示の組み立て |
+| `lib/data/`（DAL） | **世帯 ID による絞り込み（認可）**、クエリ、結果の型付け | 世帯 ID を引数で受け取ること、表示の組み立て |
 | `lib/`（純粋関数） | 金額・日付の計算と整形、検証 | 外部への問い合わせ、`cookies()` の参照 |
 | `lib/supabase/` | クライアントの生成と Cookie の受け渡し | 業務ロジック |
 
@@ -151,6 +154,7 @@ flowchart TD
 - **既定は Server Component。** `"use client"` は必要な場所にだけ書く。
 - Client Component が必要になるのは「入力」「開閉」「タブ切り替え」など**操作の状態を持つ**場合のみ。
 - Client Component は `lib/data/` を呼ばない。データはサーバーから props で渡す。
+- **`src/lib/data/db.ts` を `src/lib/data/` の外から import しない**（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) 約束 A）。
 - Client Component から変更を行う場合は、`src/actions/` の Server Action を import して `<form action={...}>` または `startTransition` で呼ぶ。
 
 ---
@@ -166,7 +170,7 @@ sequenceDiagram
     participant L as (app)/layout.tsx
     participant Pg as (app)/page.tsx
     participant D as lib/data/transactions.ts
-    participant S as Supabase
+    participant S as PostgreSQL
 
     B->>P: GET /?m=2026-11
     P->>S: セッションの検証・更新
@@ -175,14 +179,15 @@ sequenceDiagram
     L->>L: ユーザーと世帯を取得<br/>未ログイン→/login, 世帯なし→/setup
     L->>Pg: 通過
     Pg->>D: listTransactionsByMonth("2026-11")
-    D->>S: SELECT（RLS が世帯で絞る）
+    D->>D: requireMember() で世帯 ID を取得
+    D->>S: Prisma: where householdId（← 認可）
     S-->>D: 行
     D-->>Pg: Transaction[]
     Pg->>Pg: 日付でグループ化・合計を計算
     Pg-->>B: HTML
 ```
 
-**ポイント**: クエリに `household_id` の条件を書かない。RLS が自動で絞る。書いてもよいが、それはセキュリティではなく取得量を絞るため。
+**ポイント**: `where` の `householdId` が**認可そのもの**。これを書き忘れると他世帯のデータが出る。DAL の外には出さない。
 
 ### 4.2 変更（記録の登録）
 
@@ -190,21 +195,20 @@ sequenceDiagram
 sequenceDiagram
     participant F as フォーム（Client）
     participant A as actions/transactions.ts
-    participant S as Supabase
+    participant D as lib/data/transactions.ts
     participant R as Next.js Router
 
     F->>A: createTransaction(formData)
-    A->>A: ① 認証を確認（getUser）
-    A->>A: ② 世帯 ID をサーバー側で取得
-    A->>A: ③ 入力を検証
-    A->>S: INSERT（household_id はサーバーの値）
-    S->>S: RLS の with check で再確認
-    S-->>A: 成功 / 失敗
+    A->>A: ① 認証と世帯を取得（requireMember）
+    A->>A: ② 入力を検証
+    A->>A: ③ 参照先（categoryId / paidById）の所属を確認
+    A->>D: ④ DAL を呼ぶ
+    D->>D: householdId / createdById を me から埋める
     A->>R: refresh() で一覧を更新
     A-->>F: redirect("/") または ActionResult
 ```
 
-**①②③ を省略してはいけない。** Server Action は UI を経由せず直接 POST できるため、ここが唯一の防衛線（RLS と合わせて二重）。
+**①〜④ を省略してはいけない。** Server Action は UI を経由せず直接 POST できる。**RLS が無いので、ここと DAL が唯一の防衛線。**
 
 ### 4.3 認証（マジックリンク）
 
@@ -228,7 +232,7 @@ sequenceDiagram
     C->>B: redirect("/") （世帯が無ければ "/setup"）
 ```
 
-**サインアップとログインは同じ入口。** 初回のログイン時に `auth.users` への INSERT トリガーが `profiles` を自動作成する（→ [DB設計](./database-design.md)）。
+**サインアップとログインは同じ入口。** 初回ログイン時に**アプリ側で** `Profile` を作成する（`auth.users` へのトリガーは使わない。`auth` スキーマは Prisma の管理外 → [DB設計 §1.7](./database-design.md#17-auth-スキーマは-prisma-の管理外)）。
 
 ---
 
@@ -292,7 +296,9 @@ flowchart TD
 
 ---
 
-## 7. Supabase クライアントの使い分け
+## 7. Supabase クライアントの使い分け（**認証のみ**）
+
+> データアクセスには使わない。DB は Prisma 経由（`src/lib/data/`）。ここで作るクライアントは `auth.*` のためだけに使う。
 
 | 用途 | 生成関数 | 場所 | 注意 |
 | --- | --- | --- | --- |
@@ -328,12 +334,19 @@ Server Component のレンダリング中に `setAll` が呼ばれると書き�
 
 | 変数 | 用途 | 公開 |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase プロジェクトの URL | ブラウザに出る |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key（`sb_publishable_...`）。旧称は anon キー | ブラウザに出る |
+| `DATABASE_URL` | Prisma の接続先（Supabase の Session pooler, 5432） | **非公開。DB の全権を持つ** |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Auth 用 | ブラウザに出る |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Auth 用（Publishable key、旧 anon キー） | ブラウザに出る |
 
-- `.env.local` に置く。`.env.local.example` を例として置く（`.gitignore` の `.env*` に一致するため `!.env.local.example` の除外行が必要）。
-- **`service_role` キーは使わない**（NFR-S3）。
+- **`.env.local` 1 つに統一する。** Next.js が読み、Prisma CLI も `prisma.config.ts` 経由で同じファイルを読む（Prisma 7 は `.env` を自動で読まない）。
+- `.env.local.example` を雛形として置く（`.gitignore` の `.env*` に一致するため `!.env.local.example` の除外行が必要）。
+- **`DATABASE_URL` に `NEXT_PUBLIC_` を付けない。** 付けるとブラウザのバンドルに埋め込まれ、DB の全権が公開される。
+- Supabase の Secret key（旧 `service_role`）は使わない（NFR-S3）。
 - 環境は「ローカル」と「本番」のみ。Supabase のプロジェクトは 1 つを共用する（NFR-O3）。
+
+### 8.1 接続方式
+
+Supabase の **Session pooler（ポート 5432）1 本**だけを使う。理由 → [DB設計 §7](./database-design.md#7-接続)
 
 ---
 
@@ -342,8 +355,8 @@ Server Component のレンダリング中に `setAll` が呼ばれると書き�
 | 選ばなかったもの | 理由 |
 | --- | --- |
 | REST / GraphQL の API 層 | 利用者が Next.js アプリだけ。層を増やすと型とエラー処理の重複が生まれる → [ADR-0001](../05-decisions/ADR-0001-tech-stack.md) |
-| ORM（Prisma, Drizzle） | RLS を効かせるには Supabase クライアント経由が素直。スキーマの正を SQL に置く方針と相性がよい |
+| supabase-js でのデータアクセス | Prisma の型安全なクエリを使う（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）。supabase-js は認証のみ |
+| RLS（DB 側の認可） | [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) で廃止。Prisma は所有者ロールで接続するためポリシーが効かない |
 | 状態管理ライブラリ | サーバーから渡す props と `useState` で足りる |
 | クライアントからの Supabase 直接アクセス | 認可の判断箇所を増やしたくない |
-| 中間テーブルによる複数世帯対応 | v1 では不要。RLS が複雑になる → [DB設計](./database-design.md) |
-| テストフレームワーク（v1 時点） | 手動の受入確認で足りる段階 → [テスト戦略](../03-guidelines/testing-strategy.md) |
+| 中間テーブルによる複数世帯対応 | v1 では不要 → [ADR-0003](../05-decisions/ADR-0003-one-household-per-user.md) |

@@ -27,9 +27,11 @@ ID の体系: `NFR-S`=セキュリティ / `NFR-P`=性能 / `NFR-U`=使い勝手
 
 | ID | 要件 | 判定方法 |
 | --- | --- | --- |
-| NFR-S1 | **他の世帯のデータは一切見えない。** DB の行レベルセキュリティ（RLS）で担保し、アプリのクエリ条件には依存しない | 4 テーブルすべてで RLS が有効。[AC-9](./functional-requirements.md#ac-9-他世帯のデータが見えないfr-x2-br-12最重要) を手で実施 |
+| NFR-S1 | **他の世帯のデータは一切見えない。** `src/lib/data/` のすべてのクエリで世帯 ID を絞り、**自動テストで検証する** | DAL の全関数に認可テストがある。[AC-9](./functional-requirements.md#ac-9-他世帯のデータが見えないfr-x2-br-12最重要) を手でも実施 |
 | NFR-S2 | すべての Server Action / Route Handler の中で、認証と世帯の所属を毎回検証する。クライアントから来た世帯 ID は信用しない | 各アクションの先頭に検証がある（コードレビュー） |
-| NFR-S3 | Supabase の Secret key（旧 `service_role` キー）をアプリに持ち込まない。Publishable key（旧 anon キー）のみを使う | `grep -rn 'service_role\|sb_secret' src/` が 0 件 |
+| NFR-S3 | Supabase の Secret key（旧 `service_role` キー）を使わない。認証には Publishable key のみ | `grep -rn 'service_role\|sb_secret' src/` が 0 件 |
+| NFR-S3b | **`DATABASE_URL` は DB の全権を持つ。** ブラウザに出さず、`src/lib/data/db.ts` 以外から参照しない | `grep -rn DATABASE_URL src/` が `db.ts` のみ |
+| NFR-S3c | `prisma` を `src/lib/data/` の外から import しない | `grep -rn 'data/db' src \| grep -v '^src/lib/data/'` が 0 件 |
 | NFR-S4 | キャッシュのキーやタグに個人情報（メールアドレス等）を入れない。平文で保存されるため | コードレビュー |
 | NFR-S5 | 認証 Cookie を含むレスポンスを CDN・プロキシにキャッシュさせない | `proxy.ts` で `setAll` の第 2 引数のヘッダを設定している |
 | NFR-S6 | 秘密情報をリポジトリにコミットしない | `.gitignore` で `.env*` を除外。`git log -p` に鍵が出ない |
@@ -127,13 +129,14 @@ ID の体系: `NFR-S`=セキュリティ / `NFR-P`=性能 / `NFR-U`=使い勝手
 
 | ID | 要件 | 判定方法 |
 | --- | --- | --- |
+| NFR-M0 | **DAL のすべての関数に認可テストがある** | `pnpm test` が通る。テストの無い DAL 関数をマージしない |
 | NFR-M1 | `pnpm lint`（Biome）に違反がない | CI ではなく手元で実行 |
 | NFR-M2 | `pnpm build` が警告なしで通る | 同上 |
 | NFR-M3 | TypeScript の型エラーがない。`any` を使わない | `pnpm build` / `grep -rn ": any" src/` |
 | NFR-M4 | 仕様を変えたら同じコミットで `docs/` を更新する | コミットの中身 |
 | NFR-M5 | 設計判断は ADR に残す | [05-decisions/](../05-decisions/) |
 | NFR-M6 | 1 ファイルの行数の目安 | 300 行以内。超えたら分割を検討 |
-| NFR-M7 | 依存パッケージを増やさない | 追加する場合は ADR を書く |
+| NFR-M7 | 依存パッケージを増やさない | 追加する場合は ADR を書く（Prisma の追加は [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)） |
 
 **NFR-M7 の意図**: 個人開発では依存の更新が止まった時点で負債になる。標準機能とフレームワークの機能で足りるものに外部パッケージを入れない。
 
@@ -148,7 +151,7 @@ ID の体系: `NFR-S`=セキュリティ / `NFR-P`=性能 / `NFR-U`=使い勝手
 | NFR-O3 | Supabase のプロジェクトは 1 つ（本番用）。ローカルからも同じプロジェクトに接続する |
 | NFR-O4 | 秘密情報は `.env.local` に置き、コミットしない。例は `.env.local.example` に置く |
 | NFR-O5 | エラーログは Supabase のダッシュボードと開発サーバーのコンソールで確認する。外部の監視サービスは入れない |
-| NFR-O6 | DB の変更は `supabase/migrations/` に連番の SQL として残し、Supabase の SQL Editor で適用する |
+| NFR-O6 | DB の変更は Prisma Migrate で管理する（`prisma/migrations/`）。適用は `pnpm db:deploy` |
 
 ### NFR-O3 の注意
 
@@ -165,4 +168,4 @@ pnpm lint     # Biome の違反が 0
 pnpm build    # 型エラー・ビルドエラーが 0
 ```
 
-加えて、M2 以降は毎回 [AC-9（他世帯のデータが見えない）](./functional-requirements.md#ac-9-他世帯のデータが見えないfr-x2-br-12最重要) を手で確認する。RLS は一度書いて終わりではなく、テーブルや列を足すたびに穴が開きうる。
+加えて、M2 以降は毎回 [AC-9（他世帯のデータが見えない）](./functional-requirements.md#ac-9-他世帯のデータが見えないfr-x2-br-12最重要) を手で確認する。**認可がアプリ層にあるため、DAL に関数を足すたびに穴が開きうる**（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）。

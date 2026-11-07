@@ -2,10 +2,20 @@
 
 | | |
 | --- | --- |
-| **状態** | 採用（Accepted） |
+| **状態** | 採用（Accepted）。**一部は [ADR-0005](./ADR-0005-authorization-in-app-layer.md) で更新済み** |
 | **日付** | 2026-11-07 |
 | **決定者** | 開発者本人 |
 | **関連** | [ADR-0002](./ADR-0002-authorization-via-rls.md), [ADR-0003](./ADR-0003-one-household-per-user.md), [ADR-0004](./ADR-0004-instant-false-for-authed-segments.md), [アーキテクチャ](../02-design/architecture.md), [DB設計](../02-design/database-design.md) |
+
+> **更新あり（2026-11-07）** — 以下の 3 項目は [ADR-0005](./ADR-0005-authorization-in-app-layer.md) が上書きした。
+>
+> | この ADR の記載 | 現在 |
+> | --- | --- |
+> | 認可 = PostgreSQL の RLS | **アプリ層（Data Access Layer）** |
+> | ORM を使わない | **Prisma を使う**（スキーマ・マイグレーション・クエリ） |
+> | テストは v1 では導入しない | **Vitest を導入する**（DAL の認可を守るため。ADR-0005 の約束 C） |
+>
+> それ以外（Next.js 16、Supabase を DB と認証のホストとして使う、API 層を作らない、マジックリンク認証、Biome のみ、デプロイ先を今決めない）は有効。
 
 ---
 
@@ -138,7 +148,7 @@ Supabase Auth の標準機能だけで完結し、外部サービスの設定が
 | --- | --- |
 | Supabase への依存（サービス終了・料金変更のリスク） | データは PostgreSQL。標準的な SQL で他へ移せる。ORM を挟まない分、移行先の選択肢も狭まらない |
 | Next.js 16 の情報が少ない | 同梱ドキュメントを一次情報とする運用を [コーディング規約 §5.4](../03-guidelines/coding-standards.md#54-nextjs-16-固有) に明記。`cacheComponents` への対応は [ADR-0004](./ADR-0004-instant-false-for-authed-segments.md) |
-| RLS の学習コスト | [ADR-0002](./ADR-0002-authorization-via-rls.md) と [DB設計](../02-design/database-design.md) に設計意図と罠を記録。[テスト戦略](../03-guidelines/testing-strategy.md#42-rls-の侵入確認毎回実施) に検証手順を固定 |
+| RLS の学習コスト | [ADR-0002](./ADR-0002-authorization-via-rls.md) と [DB設計](../02-design/database-design.md) に設計意図と罠を記録。[テスト戦略](../03-guidelines/testing-strategy.md#42-認可の確認毎回実施) に検証手順を固定 |
 | 自動テストがない | 受入条件を手順化。導入条件を明記 |
 | ローカル開発でも本番 DB に接続する | 確認で入れたデータを後で消す運用（NFR-O3）。環境分離は v2 で検討 |
 | 複数世帯に所属できない | v1 の要件外。中間テーブルの追加で移行可能な設計にした（→ [ADR-0003](./ADR-0003-one-household-per-user.md)） |

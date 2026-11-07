@@ -71,27 +71,32 @@ flowchart LR
 | # | 内容 | 対象 |
 | --- | --- | --- |
 | 1 | Supabase に無料プロジェクトを作る（**手作業**） | Supabase ダッシュボード |
-| 2 | マイグレーション SQL を書く（4 テーブル、`current_household_id()`、`handle_new_user()` トリガー、`touch_updated_at()`、`create_household()`、`join_household()`、RLS ポリシー） | `supabase/migrations/0001_init.sql` |
-| 3 | SQL Editor で実行する | Supabase ダッシュボード |
-| 4 | Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録（**手作業**） | 同上 |
-| 5 | `.env.local` に URL と公開キーを設定 | `.env.local` |
+| 2 | Prisma を導入する（`prisma`, `@prisma/client`, `@prisma/adapter-pg`, `pg`, `dotenv`） | `package.json` |
+| 3 | スキーマを書く（4 モデル + `Kind` enum） | `prisma/schema.prisma` |
+| 4 | CLI の設定（`.env.local` を読む） | `prisma.config.ts` |
+| 5 | 初期マイグレーションを生成し、CHECK 制約を手で追記する | `prisma/migrations/0001_init/migration.sql` |
+| 6 | Prisma Client の生成口を作る | `src/lib/data/db.ts` |
+| 7 | 接続文字列を設定（Session pooler, 5432）（**手作業**） | `.env.local` |
+| 8 | 本番に適用する | `pnpm db:deploy` |
+| 9 | Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録（**手作業**） | Supabase ダッシュボード |
 
 ### 完成の定義
 
-- Table Editor に 4 テーブルが見え、すべてに「RLS enabled」が表示されている
-- Database → Functions に 5 つの関数がある
-- **SQL を 2 回続けて実行してもエラーが出ない**（冪等性）
+- `pnpm db:status` がすべて適用済みと表示する
+- Table Editor に 4 テーブルが見える
+- CHECK 制約が 5 件入っている
 - Redirect URLs が登録されている
 
 ### 注意
 
-- 冪等に書く（`create table if not exists`、`create or replace function`、`drop policy if exists` → `create policy`）
-- `security definer` 関数に `set search_path = public` を忘れない
-- `revoke all ... from public` → `grant execute ... to authenticated` を各 RPC に書く
+- **CHECK 制約は Prisma schema に書けない。** マイグレーションの SQL に手書きで追記する
+- `prisma migrate dev` はシャドー DB を要求するため、初期マイグレーションは `migrate diff --from-empty` で生成した
+- Supabase の「RLS が無効です」警告は**意図した状態**（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）
+- **`DATABASE_URL` は DB の全権を持つ。** `NEXT_PUBLIC_` を付けない
 
 ### 参照
 
-[DB設計](../02-design/database-design.md) / [テスト戦略 §4.1](../03-guidelines/testing-strategy.md#41-スキーマと-rls-の確認m1)
+[DB設計](../02-design/database-design.md) / [テスト戦略 §4.3](../03-guidelines/testing-strategy.md#43-スキーマとマイグレーションの確認m1)
 
 ---
 
@@ -104,14 +109,14 @@ flowchart LR
 | # | 内容 | 対象ファイル |
 | --- | --- | --- |
 | 1 | 環境変数の読み取りヘルパー | `src/lib/supabase/env.ts` |
-| 2 | Supabase クライアント（サーバー用 / ブラウザ用） | `src/lib/supabase/server.ts`, `client.ts` |
+| 2 | Supabase クライアント（**認証のみ**。サーバー用 / ブラウザ用） | `src/lib/supabase/server.ts`, `client.ts` |
 | 3 | `proxy.ts` でセッション更新（**`setAll` の第 2 引数のヘッダを忘れない**） | `src/proxy.ts` |
-| 4 | 認証ヘルパー（`getMe` / `requireUser` / `requireMember`） | `src/lib/auth.ts` |
-| 5 | 型定義（`Me`, `Member`, `ActionResult`, `ActionError`） | `src/lib/types.ts` |
+| 4 | 認証ヘルパー（`getMe` / `requireUser` / `requireMember`）。**初回ログイン時に `Profile` を作る** | `src/lib/auth.ts`, `src/lib/data/profile.ts` |
+| 5 | 型定義（`Me`（`userId` と `profileId` を持つ）, `Member`, `ActionResult`） | `src/lib/types.ts` |
 | 6 | 検証ヘルパーの土台 | `src/lib/validation.ts` |
 | 7 | `/login`（メール入力 → マジックリンク送信、送信後の表示、エラー表示） | `src/app/login/page.tsx`, `src/actions/auth.ts` |
 | 8 | `/auth/callback`（`exchangeCodeForSession` → 振り分け） | `src/app/auth/callback/route.ts` |
-| 9 | `/setup`（世帯を作る / 招待コードで参加する） | `src/app/setup/page.tsx`, `src/actions/household.ts` |
+| 9 | `/setup`（世帯を作る / 招待コードで参加する）。DAL に `createHouseholdForMe` / `joinHouseholdForMe`（`$transaction` + 初期カテゴリ 18 件 + 招待コード生成） | `src/app/setup/`, `src/actions/household.ts`, `src/lib/data/household.ts` |
 | 10 | `(app)` レイアウトでの振り分け + `export const instant = false` | `src/app/(app)/layout.tsx` |
 | 11 | ログアウト | `src/actions/auth.ts` |
 | 12 | 仮のホーム画面（「ログインできました」程度） | `src/app/(app)/page.tsx` |
@@ -146,15 +151,16 @@ flowchart LR
 
 | # | 内容 | 対象ファイル |
 | --- | --- | --- |
+| 0 | **Vitest とローカル DB の用意**（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) 約束 C） | `vitest.config.ts`, `scripts/test-db.sh`, `.env.test` |
 | 1 | 金額のユーティリティ（整形・パース・集計） | `src/lib/money.ts` |
 | 2 | 月のユーティリティ（範囲計算・前後移動・表示名・日付ラベル） | `src/lib/month.ts` |
-| 3 | 読み取り関数（月次一覧、単体取得、カテゴリ、メンバー、世帯） | `src/lib/data/transactions.ts`, `household.ts` |
+| 3 | DAL（月次一覧、単体取得、カテゴリ、メンバー、世帯）**＋ 各関数の認可テスト** | `src/lib/data/*.ts`, `src/lib/data/*.test.ts` |
 | 4 | ホーム画面（月切り替え、合計、日付グループ化、一覧、空表示） | `src/app/(app)/page.tsx` |
 | 5 | 一覧の行コンポーネント | `src/components/transaction-row.tsx` など |
-| 6 | 記録の登録アクション（検証・所属確認・INSERT） | `src/actions/transactions.ts` |
+| 6 | 記録の登録アクション（検証・参照先の所属確認）＋ DAL の `createTransactionForMe` | `src/actions/transactions.ts`, `src/lib/data/transactions.ts` |
 | 7 | `/new`（種別タブ、金額入力、カテゴリ選択、折りたたみ項目、保存） | `src/app/(app)/new/` |
 | 8 | 金額入力・種別タブ・カテゴリ選択の Client Component | `src/components/` |
-| 9 | 更新・削除アクション | `src/actions/transactions.ts` |
+| 9 | 更新・削除アクション（DAL は `updateMany` / `deleteMany` で世帯条件を付ける） | `src/actions/transactions.ts` |
 | 10 | `/transactions/[id]`（編集・削除・見つからない表示） | `src/app/(app)/transactions/[id]/` |
 | 11 | エラー表示（入力エラー・保存失敗） | 各フォーム |
 
@@ -169,13 +175,16 @@ flowchart LR
 | 5 | 記録のない月で空表示が出る | AC-8 |
 | 6 | 他世帯のデータが見えない（再確認） | **AC-9** |
 | 7 | 起動から保存まで 10 秒以内、4 タップ | NFR-P3, NFR-U2 |
+| 8 | **DAL の全関数に認可テストがあり `pnpm test` が通る** | ADR-0005 約束 C |
 
 ### 注意
 
-- `household_id` / `created_by` をクライアントから受け取らない
-- `categoryId` / `paidBy` の所属をアクション内で確認する（**RLS では防げない**）
-- UPDATE / DELETE が 0 行だった場合は `NOT_FOUND` を返す
+- `householdId` / `createdById` をクライアントから受け取らない
+- `categoryId` / `paidById` の所属を確認する（外部キーでは防げない）
+- **`update({ where: { id } })` を使わない。** `updateMany({ where: { id, householdId } })` にして `count === 0` なら `NOT_FOUND`
 - 月末・月初の記録が正しい月に入ることを必ず確認する
+- **`occurredOn` の整形は UTC で行う**（`@db.Date` は UTC 0 時の `Date` で返る）
+- **テストの無い DAL 関数を作らない**
 
 ### 参照
 
@@ -256,7 +265,8 @@ M3 が終わり、以下がすべて「はい」になった状態。
 
 1. **1 マイルストーンずつ。** M3 を飛ばして M5 をやらない。
 2. マイルストーンの終わりに `pnpm lint` / `pnpm build` を通し、受入条件を手で確認してコミットする。
-3. **M2 以降は毎回 AC-9（他世帯のデータが見えない）を実施する。** テーブルや列を足すたびに RLS の穴が開きうる。
+3. **M2 以降は毎回 AC-9（他世帯のデータが見えない）を実施する。** 認可がアプリ層にあるため、DAL に関数を足すたびに穴が開きうる。
+3b. **DAL に関数を足したら、認可テストを同じコミットで足す**（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) 約束 C）。
 4. 仕様を変えたら、コードと同じコミットで `docs/` を直す（NFR-M4）。
 5. 設計の判断を変えたら [ADR](../05-decisions/) を追加する。既存の ADR を書き換えず、新しい番号で「置き換える」形にする。
 6. 詰まったら [v1 に入れないリスト](../00-overview/project-overview.md#52-v1-に入れない意図的に落とす)に逃がすことを検討する。
@@ -269,9 +279,9 @@ M3 が終わり、以下がすべて「はい」になった状態。
 | マイルストーン | 見立て | 不確実性の要因 |
 | --- | --- | --- |
 | M0 | 1〜2 時間 | 小 |
-| M1 | 2〜4 時間 | RLS の書き起こしと検証 |
+| M1 | 2〜4 時間 | Prisma のセットアップと接続（Supabase のプーラー設定） |
 | M2 | 4〜8 時間 | **大。** マジックリンクのリダイレクト設定、Next.js 16 の `proxy.ts` と `cacheComponents` の組み合わせ |
-| M3 | 8〜12 時間 | 中。画面と入力フォームの量 |
+| M3 | 12〜16 時間 | 中。画面と入力フォームの量 + **Vitest の環境構築と認可テスト** |
 | M4 | 4〜8 時間 | 中。実機での調整 |
 | M5 | 2〜4 時間 | アイコンの作成とデプロイ |
 

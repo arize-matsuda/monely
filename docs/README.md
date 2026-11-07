@@ -71,10 +71,11 @@
 
 | ADR | 判断 | 状態 |
 | --- | --- | --- |
-| [ADR-0001](./05-decisions/ADR-0001-tech-stack.md) | 技術スタックの選定（Next.js + Supabase + RLS、API 層を作らない、ORM を使わない） | 採用 |
-| [ADR-0002](./05-decisions/ADR-0002-authorization-via-rls.md) | 認可を PostgreSQL の RLS に置く（`service_role` を使わない） | 採用 |
+| [ADR-0001](./05-decisions/ADR-0001-tech-stack.md) | 技術スタックの選定（Next.js + Supabase、API 層を作らない） | 採用（一部 ADR-0005 で更新） |
+| [ADR-0002](./05-decisions/ADR-0002-authorization-via-rls.md) | 認可を PostgreSQL の RLS に置く | **置き換え済み（ADR-0005）** |
 | [ADR-0003](./05-decisions/ADR-0003-one-household-per-user.md) | 1 ユーザー = 1 世帯のデータモデル（中間テーブルを作らない） | 採用 |
 | [ADR-0004](./05-decisions/ADR-0004-instant-false-for-authed-segments.md) | 認証後のセグメントを `instant = false` にする | 採用 |
+| [**ADR-0005**](./05-decisions/ADR-0005-authorization-in-app-layer.md) | **認可をアプリ層に置き、Prisma を採用する**（ADR-0002 を置き換え） | 採用 |
 
 ---
 
@@ -86,12 +87,12 @@
 | この名前で呼んでいいのか | [用語集](./00-overview/glossary.md) |
 | この機能は何をもって完成か | [機能要件 §4 受入条件](./01-requirements/functional-requirements.md#4-受入条件) |
 | このファイルはどこに置くのか | [アーキテクチャ §2](./02-design/architecture.md#2-ディレクトリ構成) |
-| テーブルに列を足したい | [DB設計 §5.3](./02-design/database-design.md#53-テーブルや列を足すときの手順) |
+| テーブルに列を足したい | [DB設計 §6](./02-design/database-design.md#6-マイグレーション運用) |
 | Server Action をどう書くのか | [API設計 §2.1](./02-design/api-design.md#21-すべての-server-action-が従う-4-ステップ) |
 | エラーをどう返すのか | [API設計 §2.2〜2.4](./02-design/api-design.md#22-戻り値の型) |
 | 色や余白をどう決めるのか | [UI/UX設計 §6.4](./02-design/ui-ux-design.md#64-デザイントークン) |
 | 何を確認したら完了なのか | [テスト戦略 §2〜3](./03-guidelines/testing-strategy.md#2-品質ゲート毎回実行) |
-| RLS が効いているか確かめたい | [テスト戦略 §4.2](./03-guidelines/testing-strategy.md#42-rls-の侵入確認毎回実施) |
+| 他世帯のデータが見えないか確かめたい | [テスト戦略 §4.2](./03-guidelines/testing-strategy.md#42-認可の確認毎回実施) |
 | 次に何をやるのか | [タスクリスト](./04-development/task-list.md) |
 | なぜこの構成なのか | [05-decisions/](./05-decisions/) |
 
@@ -104,7 +105,8 @@
 | フレームワーク | Next.js 16.4.5（App Router） |
 | UI | React 19 + Tailwind CSS v4 |
 | DB・認証 | Supabase（PostgreSQL + Supabase Auth） |
-| 認可 | PostgreSQL の RLS |
+| データアクセス | Prisma（スキーマ・マイグレーション・クエリ） |
+| 認可 | **アプリ層（`src/lib/data/`）** |
 | Lint / Format | Biome |
 | パッケージ管理 | pnpm |
 

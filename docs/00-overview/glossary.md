@@ -10,7 +10,7 @@
 
 | 概念 | UI 表記 | コード / DB | 意味と注意 |
 | --- | --- | --- | --- |
-| 世帯 | **わが家** | `household` / `households` | 家計簿を共有する単位。家族 1 グループ = 1 世帯。UI で「世帯」という硬い語は使わない |
+| 世帯 | **わが家** | `Household` / `households` | 家計簿を共有する単位。家族 1 グループ = 1 世帯。UI で「世帯」という硬い語は使わない |
 | メンバー | **メンバー** | `profile` / `profiles` | 世帯に所属するユーザー。`auth.users` と 1:1 |
 | 記録 | **記録** | `transaction` / `transactions` | 収支 1 件。「取引」「明細」とは呼ばない |
 | 種別 | **支出** / **収入** | `kind`（`'expense'` \| `'income'`） | 記録の向き。金額の符号では表さない |
@@ -21,6 +21,7 @@
 | カテゴリ | **カテゴリ** | `category` / `categories` | 支出用・収入用に分かれる。世帯ごとに持つ |
 | 未分類 | **未分類** | `category_id = null` | カテゴリ未選択の記録。`'未分類'` という名前のカテゴリ行は作らない |
 | 非表示（カテゴリ） | **非表示にする** | `archived = true` | 新規登録の選択肢から外す。既存の記録には残る。削除はしない |
+| ユーザー ID（Supabase） | （UI に出さない） | `Profile.userId` | Supabase Auth の `user.id`。`Profile.id` とは**別物** |
 | 招待コード | **招待コード** | `invite_code` | 世帯に参加するための 6 桁の英数字（大文字） |
 | 差額 | **差額** | `balance` | 収入合計 − 支出合計。「収支」と呼ばない（種別と紛れる） |
 | 月 | **2026年11月** | `month`（`"2026-11"` 形式の文字列） | 一覧の単位。URL には `?m=2026-11` で持つ |
@@ -43,10 +44,10 @@
 
 | 用語 | 意味 | このプロジェクトでの関わり |
 | --- | --- | --- |
-| **RLS**（Row Level Security） | PostgreSQL の行レベルアクセス制御。テーブルごとにポリシーを書き、条件に合う行だけを見せる | **セキュリティの本体。** 「他世帯のデータが見えない」をここで保証する → [DB設計](../02-design/database-design.md) |
-| **ポリシー**（policy） | RLS の規則。`using`（読める行）と `with check`（書ける行）を指定する | 4 テーブルすべてに設定する |
-| **RPC** | Supabase から呼べる DB の関数（`supabase.rpc()`） | RLS で表現できない複合操作（世帯作成・参加）をここに閉じ込める |
-| **`security definer`** | 関数の定義者の権限で実行する PostgreSQL の指定。関数内のクエリに RLS が適用されない | `current_household_id()` のポリシー無限再帰を断ち切るために使う |
+| **DAL**（Data Access Layer） | `src/lib/data/` のモジュール群。DB に触る唯一の場所 | **認可の本体。** ここの `where` が「他世帯のデータが見えない」の唯一の保証 → [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) |
+| **Prisma** | TypeScript の ORM。スキーマ定義・マイグレーション・クエリを担う | `prisma/schema.prisma` がスキーマの正 |
+| **driver adapter** | Prisma 7 が必須とする DB ドライバの接続層 | `@prisma/adapter-pg` + `pg` を使う |
+| **RLS**（Row Level Security） | PostgreSQL の行レベルアクセス制御 | **使わない。** 2026-11-07 に ADR-0005 で廃止した。Prisma は所有者ロールで接続するためポリシーが効かない |
 | **Server Component** | サーバーだけで実行される React コンポーネント。既定 | データの読み取りはここで行う |
 | **Client Component** | ブラウザでも実行されるコンポーネント。`"use client"` を書く | 入力フォームなど、操作が必要な部分だけ |
 | **Server Action** | `"use server"` を付けた関数。フォーム送信などから呼べる。実体は POST | データの変更はすべてここを通す。**直接 POST で叩けるため、中で認証を確認する** |
@@ -56,8 +57,9 @@
 | **PKCE** | 認可コードを安全に交換する手順 | マジックリンクのコールバックで使われる |
 | **マジックリンク** | メールに届くリンクを開くとログインできる方式。パスワードなし | v1 の唯一の認証方式 |
 | **PWA** | ホーム画面に追加してアプリのように使える Web アプリ | M5 で対応 |
-| **`anon` / publishable key** | Supabase の公開可能なキー。ブラウザに出てよい | これだけを使う |
-| **`service_role` key** | RLS をバイパスする管理キー | **使わない。** 使うと設計の前提が崩れる |
+| **Publishable key** | Supabase の公開可能なキー（`sb_publishable_...`、旧 anon キー）。ブラウザに出てよい | **認証にのみ**使う |
+| **`DATABASE_URL`** | Prisma の接続文字列（Supabase の Session pooler） | **DB の全権を持つ。** ブラウザに出さない。`NEXT_PUBLIC_` を付けない |
+| **Secret key** | 旧 `service_role` キー | **使わない** |
 
 ---
 
@@ -71,7 +73,8 @@
 | React コンポーネント | PascalCase | `TransactionList` |
 | 関数・変数 | camelCase | `createTransaction`, `monthStart` |
 | 型・インターフェース | PascalCase | `Transaction`, `ActionResult` |
-| DB のテーブル・列 | snake_case（複数形のテーブル名） | `transactions`, `occurred_on` |
+| Prisma のモデル・フィールド | PascalCase / camelCase | `Transaction`, `occurredOn` |
+| DB のテーブル・列（`@map` 後） | snake_case（複数形のテーブル名） | `transactions`, `occurred_on` |
 | 定数 | UPPER_SNAKE_CASE | `MAX_MEMO_LENGTH` |
 
 詳細 → [コーディング規約](../03-guidelines/coding-standards.md)

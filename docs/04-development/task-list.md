@@ -28,8 +28,9 @@
 
 | | |
 | --- | --- |
-| **進行中のマイルストーン** | M1（SQL 作成と検証は完了。残りは**手作業**） |
-| **次にやること** | M1-6 SQL Editor で `0001_init.sql` を実行 →  M1-8 Redirect URLs 登録 → M1-9 `.env.local` 設定（いずれも手作業） |
+| **進行中のマイルストーン** | M1（Prisma のセットアップ完了。残りは接続情報の設定と適用） |
+| **次にやること** | M1-7 `.env.local` に `DATABASE_URL` を設定（**手作業**）→ M1-8 `pnpm db:deploy` |
+| **方針変更** | 2026-11-07 に認可を RLS からアプリ層に移した → [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) |
 | **ブロッカー** | なし |
 
 ---
@@ -77,44 +78,54 @@
 - `public/` は空になった。PWA アイコンを M5 で入れる。
 - `next dev` が `AGENTS.md` に `nextjs-agent-feedback` ブロックを追記した（`experimental.agentFeedback` が有効なため）。追記分はそのままコミットしている。
 
-## M1 — Supabase プロジェクトと DB スキーマ
+## M1 — Supabase プロジェクトと DB スキーマ（Prisma）
 
-SQL の作成とローカル検証は完了。**残りは Supabase ダッシュボードでの手作業**。
+> **2026-11-07 に方針変更。** 認可を RLS からアプリ層に移し、データアクセスを Prisma に寄せた（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）。RLS 前提で作った `supabase/migrations/0001_init.sql` と `supabase/verify/` は削除した。
 
-### 未着手（手作業）
+### 未着手
 
-- [ ] M1-6 `supabase/migrations/0001_init.sql` を SQL Editor に貼って実行する
-- [ ] M1-8 Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録する
-- [ ] M1-9 Project Settings → API の URL と公開キーを `.env.local` に設定する（`cp .env.local.example .env.local`）
-- [ ] M1-10 [テスト戦略 §4.1](../03-guidelines/testing-strategy.md#41-スキーマと-rls-の確認m1) のチェックリストを**本番プロジェクトに対して**実施する
+- [ ] M1-7 `.env.local` に `DATABASE_URL` を設定（**手作業**。Supabase の Session pooler, ポート 5432）
+- [ ] M1-8 `pnpm db:deploy` で本番に適用する
+- [ ] M1-9 Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録（**手作業**）
+- [ ] M1-10 [テスト戦略 §4.3](../03-guidelines/testing-strategy.md#43-スキーマとマイグレーションの確認m1) のチェックリストを実施
 
 ### 完了
 
 - [x] M1-1 Supabase に無料プロジェクトを作る（2026-11-07）
-- [x] M1-2 `supabase/migrations/0001_init.sql` — テーブル 4 つ（2026-11-07）
-- [x] M1-3 同 — `current_household_id()`、`handle_new_user()`、`touch_updated_at()`、`generate_invite_code()`（2026-11-07）
-- [x] M1-4 同 — `create_household()`、`join_household()`（初期カテゴリ 18 件の投入を含む）（2026-11-07）
-- [x] M1-5 同 — テーブル権限（revoke → grant）と RLS ポリシー 13 本（2026-11-07）
-- [x] M1-7 冪等性の確認（ローカルで 2 回連続実行して成功）（2026-11-07）
-- [x] M1-11 ローカル検証スクリプト `supabase/verify/` を作成（2026-11-07。当初のタスクには無かったが、下記の不具合を見つけたため残した）
+- [x] M1-2 Prisma を導入（`prisma@7.10.1`, `@prisma/client`, `@prisma/adapter-pg`, `pg`, `dotenv`, `@types/pg`）（2026-11-07）
+- [x] M1-3 `prisma/schema.prisma` — 4 モデル（`Household` / `Profile` / `Category` / `Transaction`）+ `Kind` enum（2026-11-07）
+- [x] M1-4 `prisma.config.ts` — `.env.local` を読む設定（2026-11-07）
+- [x] M1-5 `prisma/migrations/0001_init/migration.sql` — `migrate diff` で生成し、CHECK 制約 5 件を手で追記（2026-11-07）
+- [x] M1-6 `src/lib/data/db.ts` — Prisma Client の生成口（外から import 禁止）（2026-11-07）
+- [x] M1-11 `.gitignore` / `biome.json` から生成物（`src/generated/`）を除外（2026-11-07）
+- [x] M1-12 `package.json` に `db:*` スクリプトを追加（2026-11-07）
+- [x] M1-13 旧 RLS 資産（`supabase/`）を削除（2026-11-07）
 
-### M1 で見つけて直した不具合
+### 方針変更でやったこと
 
-**`TRUNCATE` で全世帯のデータを消せる状態だった。**
+- **ADR**: ADR-0005 を追加。ADR-0002 を Superseded に。ADR-0001 / ADR-0003 に注記
+- **ドキュメント**: DB設計・セキュリティガイドライン・テスト戦略を全面的に書き直し、アーキテクチャ・API設計・コーディング規約・用語集・機能要件・非機能要件・実装計画を更新
+- **撤回した判断**: 「v1 ではテストを入れない」（[ADR-0001](../05-decisions/ADR-0001-tech-stack.md)）。認可の書き忘れを検出する工程が他に無いため、M3 で Vitest を導入する
 
-Supabase は既定で `public` の新規テーブルに `ALL` を付与する。`ALL` に含まれる `TRUNCATE` は **RLS の対象外**なので、`revoke all` を書かずに `grant` だけ足していると、ログイン済みの誰でも `truncate public.transactions` で全件削除できる。ローカルの Postgres 17 で再現を確認した（`DELETE` は RLS が 0 行に抑えるが、`TRUNCATE` は素通りした）。
+### Prisma のセットアップで分かったこと
 
-修正: マイグレーションの権限節を「まず `revoke all ... from anon, authenticated`、その後で必要な操作だけ `grant`」に変更。ドキュメントにも反映した（[DB設計 §5.0](../02-design/database-design.md#50-テーブル権限先に剥がしてから付け直す)、[セキュリティガイドライン §4.2](../03-guidelines/security-guidelines.md#42-テーブルを足したときの手順)、[テスト戦略 §4.1.1](../03-guidelines/testing-strategy.md#411-docker-があればローカルで全部確認できる)）。
-
-**本番のプロジェクトには修正後の SQL を適用すること**（修正前のものを流していた場合は、貼り直せば権限が直る。冪等なので安全）。
+| 事項 | 内容 |
+| --- | --- |
+| npm の `latest` が RC を指している | Prisma の `latest` タグが `8.0.0-rc.33`。安定版の最新は **7.10.1**。`prisma@7.10.1` に固定した |
+| pnpm のビルドスクリプト許可が必要 | `pnpm-workspace.yaml` の `allowBuilds` に `@prisma/engines` と `prisma` を追加。許可しないとエンジンが落ちてこない |
+| Prisma 7 は driver adapter 必須 | `@prisma/adapter-pg` + `pg`。`new PrismaClient({ adapter })` の形 |
+| Prisma 7 は `.env` を自動で読まない | `prisma.config.ts` で `dotenv` を使い、`.env.local` を明示的に読む |
+| `migrate diff` のフラグ | `--to-schema`（`--to-schema-datamodel` は 6 系） |
+| CHECK 制約が書けない | マイグレーションの SQL に手書き。5 件追記した |
+| Node 26 への警告 | 「Node.js 20.19+, 22.12+, 24.0+ のみ対応」と出るが、7.10.1 は Node 26.13.0 で動作する |
 
 ### 適用済みマイグレーション
 
-| ファイル | 適用日 | 備考 |
-| --- | --- | --- |
-| `0001_init.sql` | （未適用） | ローカル検証は合格。本番への適用は M1-6 |
+適用状況は Supabase 側の `_prisma_migrations` テーブルが記録する。`pnpm db:status` で確認する。
 
-> 適用状況を DB 側で管理しないため、ここに記録する。
+| ファイル | 状態 |
+| --- | --- |
+| `0001_init` | **未適用**（M1-8 で適用） |
 
 ## M2 — 認証と世帯
 
@@ -148,10 +159,11 @@ Supabase は既定で `public` の新規テーブルに `ALL` を付与する。
 
 ### 未着手
 
-- [ ] M3-1 `src/lib/money.ts`（`formatYen`, `parseAmount`, `summarize`）
-- [ ] M3-2 `src/lib/month.ts`（`monthRange`, `prevMonth`, `nextMonth`, `formatMonth`, `formatDateLabel`）
-- [ ] M3-3 `src/lib/data/transactions.ts`（`listTransactionsByMonth`, `getTransaction`, `listCategories`）
-- [ ] M3-4 `src/lib/data/household.ts`（`listMembers`, `getHousehold`）
+- [ ] M3-0 **Vitest とローカル DB の用意**（`vitest.config.ts`, `scripts/test-db.sh`, `.env.test`）— ADR-0005 約束 C
+- [ ] M3-1 `src/lib/money.ts`（`formatYen`, `parseAmount`, `summarize`）＋ テスト
+- [ ] M3-2 `src/lib/month.ts`（`monthRange`, `prevMonth`, `nextMonth`, `formatMonth`, `formatDateLabel`）＋ テスト（**UTC での整形**）
+- [ ] M3-3 `src/lib/data/transactions.ts`（`listTransactionsByMonth`, `getTransaction`, `listCategories`）＋ **認可テスト**
+- [ ] M3-4 `src/lib/data/household.ts`（`listMembers`, `getHousehold`）＋ **認可テスト**
 - [ ] M3-5 ホーム画面 — 月切り替え（`?m=` の読み取り、不正値の扱い）
 - [ ] M3-6 ホーム画面 — 月次合計の表示
 - [ ] M3-7 ホーム画面 — 日付グループ化した一覧
@@ -160,15 +172,15 @@ Supabase は既定で `public` の新規テーブルに `ALL` を付与する。
 - [ ] M3-10 `/new` — 種別タブ、金額入力（Client Component）
 - [ ] M3-11 `/new` — カテゴリ選択
 - [ ] M3-12 `/new` — 折りたたみ項目（日付・支払った人・メモ）
-- [ ] M3-13 `updateTransaction` / `deleteTransaction` アクション
+- [ ] M3-13 `updateTransaction` / `deleteTransaction` アクション + DAL（`updateMany` / `deleteMany`）＋ **認可テスト**
 - [ ] M3-14 `/transactions/[id]` — 編集フォーム
 - [ ] M3-15 `/transactions/[id]` — 削除（確認付き）、見つからない表示
 - [ ] M3-16 エラー表示（入力エラー・保存失敗で入力が消えないこと）
 - [ ] M3-17 受入条件 AC-4〜AC-8 を実施
 - [ ] M3-18 **受入条件 AC-9 を再実施**
-- [ ] M3-19 [テスト戦略 §4.3](../03-guidelines/testing-strategy.md#43-金額と日付の確認m3)（金額と日付の確認。**全角数字を含む**）
+- [ ] M3-19 [テスト戦略 §4.3](../03-guidelines/testing-strategy.md#44-金額と日付の確認m3)（金額と日付の確認。**全角数字を含む**）
 - [ ] M3-20 入力速度の計測（10 秒 / 5 タップ以内）
-- [ ] M3-21 `pnpm lint` / `pnpm build` を通してコミット
+- [ ] M3-21 `pnpm lint` / `pnpm build` / **`pnpm test`** を通してコミット
 - [ ] **M3-22 v1 完成の確認。使い始める**
 
 ### 完了
@@ -246,18 +258,14 @@ v1 を 1 か月使ってから判断する。候補は [プロダクト要件 §
 
 マイルストーン完了時にここへ追記する（新しいものを上に）。
 
-### M1 確認結果（2026-11-07、ローカル検証のみ）
+### M1 確認結果（2026-11-07、方針変更後）
 
-`./supabase/verify/run.sh`（Supabase 環境を模倣した Postgres 17）で実施。**本番プロジェクトへの適用はまだ**。
-
-- マイグレーションの 2 回連続実行: OK（冪等）
-- RLS: 4 テーブルすべて有効、ポリシー 13 本すべて `to authenticated`
-- 権限: `anon` は 0 件。`authenticated` は households `SELECT,UPDATE` / profiles `INSERT,SELECT,UPDATE` / categories・transactions `DELETE,INSERT,SELECT,UPDATE`（TRUNCATE・TRIGGER・REFERENCES なし）
-- `security definer` 関数 5 本すべてに `search_path` 固定あり
-- 機能: profiles 自動生成 OK / 招待コード 500 件すべて `^[A-Z0-9]{6}$` OK / 初期カテゴリ 13+5 OK / 二重作成の拒否 OK / `created_by` 偽装の拒否 OK / amount 0・負数の拒否 OK / `generate_invite_code` の直接呼び出し拒否 OK / 無効な招待コードの拒否 OK / 小文字の招待コードで参加 OK
-- **AC-9**: 別世帯から 読み取り 0 件 / 更新 0 行 / 削除 0 行 / TRUNCATE 拒否 / 他世帯への書き込み RLS 拒否 / anon 権限なし。A のデータは無傷
-- 想定どおりの限界も確認: 他世帯の `category_id` の紐付けは **RLS では防げない**（M3 でアプリ側の所属確認が必須）
-- 残課題: 本番プロジェクトへの適用（M1-6）と本番での §4.1 確認（M1-10）
+- `pnpm lint`: OK
+- `pnpm build`: OK（型エラー 0。Prisma Client の型が通る）
+- `prisma validate`: OK
+- 初期マイグレーション SQL の生成: OK（4 テーブル・6 インデックス・6 外部キー・CHECK 5 件）
+- **未確認**: 本番への適用（`DATABASE_URL` 未設定のため）。`pnpm db:deploy` が M1-8
+- 旧 RLS 構成の検証結果は [ADR-0002](../05-decisions/ADR-0002-authorization-via-rls.md) の記録として残すが、その構成は使わない
 
 ### M0 確認結果（2026-11-07）
 

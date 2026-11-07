@@ -82,6 +82,8 @@
 | フレームワーク | Next.js（App Router） | 16.4.5 |
 | UI | React + Tailwind CSS | 19.3.0 / v4 |
 | DB・認証 | Supabase（PostgreSQL + Supabase Auth） | クラウド無料プラン |
+| データアクセス | Prisma（ORM） | 7.10.1 |
+| 認可 | アプリ層（`src/lib/data/`） | — |
 | Lint / Format | Biome | 2.4.2 |
 | パッケージ管理 | pnpm | 12.18.0 |
 | デプロイ先 | **未定**（まずローカルで完成させる） | — |
@@ -89,7 +91,9 @@
 選定理由 → [ADR-0001 技術スタック](../05-decisions/ADR-0001-tech-stack.md)
 構成と責務 → [アーキテクチャ](../02-design/architecture.md)
 
-設計上の重要な判断は 4 本の ADR に記録してある → [05-decisions/](../05-decisions/)
+設計上の重要な判断は 5 本の ADR に記録してある → [05-decisions/](../05-decisions/)
+
+> **2026-11-07 に認可の方針を変更した。** DB の RLS からアプリ層（Data Access Layer）に移した。経緯と代償 → [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)
 
 ## 7. 現在の状態
 
@@ -123,9 +127,10 @@ docs/
 │   └── task-list.md               作業状態
 └── 05-decisions/       なぜそうしたか（勝手に変えないための記録）
     ├── ADR-0001-tech-stack.md                     技術スタックの選定
-    ├── ADR-0002-authorization-via-rls.md          認可を RLS に置く
+    ├── ADR-0002-authorization-via-rls.md          認可を RLS に置く（置き換え済み）
     ├── ADR-0003-one-household-per-user.md         1 ユーザー = 1 世帯
-    └── ADR-0004-instant-false-for-authed-segments.md  認証後は instant = false
+    ├── ADR-0004-instant-false-for-authed-segments.md  認証後は instant = false
+    └── ADR-0005-authorization-in-app-layer.md     認可をアプリ層に置き Prisma を採用
 ```
 
 ### 実装を始める前に必ず読むもの
@@ -140,5 +145,5 @@ docs/
 
 1. **続けられることが最優先。** 機能の多さではなく、入力の速さで価値が決まる。
 2. **v1 に入れないものを守る。** 迷ったら落とす。落としたものはリストに残す。
-3. **権限は DB（RLS）で守る。** アプリのクエリ条件はセキュリティではない。
+3. **認可は `src/lib/data/` だけで行う。** ここを外すと最終防衛線が無い（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）。
 4. **ドキュメントとコードを一緒に直す。** ずれた瞬間にこのドキュメント群の価値が消える。

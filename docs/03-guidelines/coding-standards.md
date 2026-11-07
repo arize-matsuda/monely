@@ -12,11 +12,13 @@
 | --- | --- |
 | 言語 | TypeScript（strict） |
 | Lint / Format | **Biome 2.4.2 のみ。** ESLint も Prettier も入れない |
+| テスト | Vitest（M3 で導入） |
+| ORM | Prisma 7.10.1（`prisma/schema.prisma` がスキーマの正） |
 | インデント | スペース 2（`biome.json` で指定済み） |
 | import の整列 | Biome の assist（`organizeImports`）に任せる。手で並べ替えない |
 | 実行 | `pnpm lint`（検査）/ `pnpm format`（整形） |
 
-**コミット前に `pnpm lint` と `pnpm build` を通す**（NFR-M1, M2）。
+**コミット前に `pnpm lint` / `pnpm build` / `pnpm test` を通す**（NFR-M0〜M2）。
 
 ---
 
@@ -29,17 +31,24 @@
 | 関数・変数 | camelCase | `createTransaction`, `monthStart` |
 | 型・インターフェース | PascalCase | `Transaction`, `ActionResult` |
 | 定数（モジュールスコープ） | UPPER_SNAKE_CASE | `MAX_MEMO_LENGTH` |
-| DB のテーブル・列 | snake_case（テーブル名は複数形） | `transactions`, `occurred_on` |
+| Prisma のモデル | PascalCase（単数） | `Transaction` |
+| Prisma のフィールド | camelCase | `occurredOn`, `householdId` |
+| DB のテーブル・列（`@map` 後） | snake_case（テーブル名は複数形） | `transactions`, `occurred_on` |
 | `FormData` のキー | camelCase | `occurredOn`, `categoryId` |
 | Server Action | 動詞 + 対象 | `createTransaction`, `archiveCategory` |
-| 読み取り関数 | `get`（単体）/ `list`（複数） | `getTransaction`, `listCategories` |
+| DAL の読み取り | `get`（単体）/ `list`（複数） | `getTransaction`, `listCategories` |
+| DAL の変更 | 動詞 + 対象 + `ForMe` | `createTransactionForMe` |
 | 真偽値 | `is` / `has` / `can` で始める | `isPending`, `hasHousehold` |
 
 ドメイン用語の対応は [用語集](../00-overview/glossary.md) が正。**そこに無い語を新しく使う場合は、先に用語集に追記する。**
 
-### 2.1 DB の列名は変換しない
+### 2.1 TypeScript 側は camelCase、DB 側は snake_case
 
-Supabase から返るオブジェクトは **snake_case のまま扱う**（`occurred_on` を `occurredOn` に変換しない）。変換層を作ると DB と画面の間に対応表が増えて追いにくくなる。アプリ内部で新しく組み立てる値だけ camelCase にする。
+Prisma の `@map` が対応を持つ。アプリのコードでは **camelCase だけ**を扱い、snake_case は `schema.prisma` の中にしか出てこない。
+
+```prisma
+occurredOn DateTime @map("occurred_on") @db.Date
+```
 
 ---
 
@@ -50,8 +59,9 @@ Supabase から返るオブジェクトは **snake_case のまま扱う**（`occ
 | 置くもの | 置き場所 |
 | --- | --- |
 | 画面 | `src/app/**/page.tsx` |
-| データの読み取り | `src/lib/data/*.ts` |
-| データの変更（Server Action） | `src/actions/*.ts` |
+| **DB へのアクセス（読み書き両方）** | `src/lib/data/*.ts` — **`prisma` を import できる唯一の場所** |
+| データの変更（Server Action） | `src/actions/*.ts`（DAL を呼ぶ） |
+| DAL のテスト | `src/lib/data/*.test.ts`（**必須**） |
 | 画面をまたいで使う UI | `src/components/`（汎用は `components/ui/`） |
 | その画面専用の UI | その画面のディレクトリ内に `_components/` |
 | 純粋な計算（金額・日付・検証） | `src/lib/*.ts` |
@@ -59,7 +69,16 @@ Supabase から返るオブジェクトは **snake_case のまま扱う**（`occ
 
 ### 3.1 依存の方向
 
-**`app/` → `actions/` → `lib/` の一方向のみ。** `lib/` から `app/` を import しない。循環が起きそうなら型を `src/lib/types.ts` に移す。
+**`app/` → `actions/` → `lib/data/` → `lib/` の一方向のみ。** `lib/` から `app/` を import しない。循環が起きそうなら型を `src/lib/types.ts` に移す。
+
+### 3.1.1 `src/lib/data/db.ts` を外から import しない
+
+認可は DAL の中だけで行う（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) 約束 A）。
+
+```bash
+# 0 件であること
+grep -rn "data/db" src --include="*.ts" --include="*.tsx" | grep -v "^src/lib/data/"
+```
 
 ### 3.2 `index.ts` での再 export（barrel file）を作らない
 
@@ -80,7 +99,7 @@ import 元が曖昧になり、循環の原因にもなる。`import { Button } 
 | 関数の戻り値の型は、公開するもの（export するもの）には明示する | 変更時に意図しない型の変化に気づける |
 | ローカル変数の型注釈は省略してよい（推論に任せる） | 冗長さを避ける |
 | オプショナルより `\| null` を優先する | DB の null と対応が取れる。`undefined` と `null` の両方を扱わない |
-| 列挙は union 型（`"expense" \| "income"`）。`enum` は使わない | DB の値と直接対応し、変換が不要 |
+| 列挙は union 型。**TypeScript の `enum` は使わない** | 変換が不要。ただし **Prisma の enum は使う**（DB 制約を生むため） |
 | 非 null アサーション（`!`）を避ける。環境変数の読み取りだけ例外とする | 落ちる場所が分からなくなる |
 
 ### 4.1 環境変数
@@ -111,6 +130,7 @@ function required(name: string): string {
 
 - 読み取りは Server Component から `src/lib/data/` を呼ぶ。`useEffect` + `fetch` を使わない。
 - 変更は Server Action のみ。`<form action={someAction}>` で呼ぶ（JS が無効でも動く）。
+- **画面もアクションも `prisma` を直接触らない。** 必ず DAL の関数を経由する。
 - 変更後の反映は `refresh()`（`next/cache`）または `redirect()`。手でクライアント状態を書き換えない。
 
 ### 5.3 React Compiler が有効
@@ -137,6 +157,7 @@ function required(name: string): string {
 - 入力の受け取りは `FormData`。値は常に `string | File` なので、**数値・日付は明示的に変換し、失敗を検証エラーにする。**
 - 検証は `src/lib/validation.ts` の関数に寄せる。アクションの中に散らさない。
 - 検証ライブラリ（zod 等）を v1 では入れない（NFR-M7）。項目数が少なく、手書きで足りる。
+- **全角数字を必ず考慮する**（スマホの日本語キーボードで混入する）。テストケースに入れる。
 - **クライアント側の検証はサーバー側検証の代わりにならない。** 両方書く（NFR-S8）。
 
 ```ts
@@ -169,6 +190,7 @@ export function parseAmount(raw: FormDataEntryValue | null): ParseResult<number>
 | 対象 | 置き場所 | 関数の例 |
 | --- | --- | --- |
 | 金額 | `src/lib/money.ts` | `formatYen(1280)` → `"¥1,280"`、`summarize(rows)` |
+| 日付の UTC 取り出し | `src/lib/month.ts` | `@db.Date` は UTC 0 時の `Date` で返る。**ローカルタイムで整形しない** |
 | 月 | `src/lib/month.ts` | `monthRange("2026-11")`、`prevMonth()`、`formatMonth()` |
 | 日付 | `src/lib/month.ts` | `formatDateLabel("2026-11-07")` → `"11月7日 (金)"` / `"今日"` |
 
@@ -177,6 +199,8 @@ export function parseAmount(raw: FormDataEntryValue | null): ParseResult<number>
 - 金額に浮動小数点の演算を使わない。整数（円）のまま足し引きする。
 - 日付に `new Date()` の時刻部分を使わない。文字列 `"YYYY-MM-DD"` と `date` 型で受け渡す。
 - `toLocaleDateString()` を画面に直接書かない（`src/lib/` 経由）。
+- **`occurredOn` の整形は UTC で行う**（`getUTCMonth()` / `getUTCDate()`）。ローカルタイムだと環境によって前日になる → [DB設計 §5.2](../02-design/database-design.md#52-dbdate-の読み出しに注意)
+- 書き込みは `new Date("2026-11-07")`（UTC 0 時）を使い、`new Date(2026, 10, 7)`（ローカル 0 時）を使わない。
 - タイムゾーンに依存する計算をしない。「今日」の算出だけはローカルタイムで行い、関数に閉じ込める。
 
 ---
@@ -221,7 +245,8 @@ try { ... } catch { }
 | コミットの粒度 | 1 つの変更 = 1 コミット。マイルストーン単位でまとめない |
 | コミットメッセージ | 日本語。1 行目に何をしたか（例: `記録の登録アクションを追加`） |
 | **仕様の変更** | コードと `docs/` を**同じコミット**に入れる（NFR-M4） |
-| コミットしないもの | `.env.local`、`node_modules/`、`.next/` |
+| コミットしないもの | `.env.local`、`node_modules/`、`.next/`、`src/generated/` |
+| マイグレーション | `prisma/migrations/` は**コミットする**。生成済みのファイルは編集しない |
 | `AGENTS.md` の変更 | `next dev` が自動で書き戻すため、差分が出たら作業と一緒にコミットする |
 
 ---
@@ -236,7 +261,9 @@ try { ... } catch { }
 | 入れない | 数十行の自作で足りる。UI ライブラリで見た目を揃えたいだけ |
 | 必須 | 追加する場合は [ADR](../05-decisions/) を 1 本書く |
 
-現在の依存: `next`, `react`, `react-dom`, `@supabase/supabase-js`, `@supabase/ssr`（+ dev の Biome / Tailwind / TypeScript）。
+現在の依存: `next`, `react`, `react-dom`, `@supabase/supabase-js`, `@supabase/ssr`, `@prisma/client`, `@prisma/adapter-pg`, `pg`（+ dev の Biome / Tailwind / TypeScript / `prisma` / `dotenv` / Vitest）。
+
+Prisma の追加理由 → [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)
 
 ---
 
@@ -245,9 +272,13 @@ try { ... } catch { }
 実装後に確認する。1 つでも該当したら直す。
 
 - [ ] `any` を使っていない
-- [ ] `service_role` キーを参照していない（`grep -rn service_role src/`）
+- [ ] **`prisma` を DAL の外から import していない**（`grep -rn "data/db" src | grep -v "^src/lib/data/"` が 0 件）
+- [ ] **DAL のすべてのクエリに `householdId` の条件がある**
+- [ ] **追加した DAL 関数に認可テストがある**
+- [ ] `DATABASE_URL` を `src/lib/data/db.ts` 以外から参照していない
+- [ ] `service_role` キーを参照していない
 - [ ] Server Action の中で認証を確認している（例外なし）
-- [ ] クライアントから受け取った `household_id` / `created_by` を DB に書いていない
+- [ ] クライアントから受け取った `householdId` / `createdById` を DB に書いていない
 - [ ] 金額に浮動小数点の演算を使っていない
 - [ ] 生の色値（`#rrggbb`）をコンポーネントに書いていない
 - [ ] `catch {}` で理由なく例外を捨てていない

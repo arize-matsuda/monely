@@ -13,7 +13,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 # Monely
 
 スマホで数秒で記録できて、家族と同じ家計簿を見られる、自作の家計管理アプリ。
-Next.js 16（App Router）+ Supabase（PostgreSQL + Auth）+ Tailwind CSS v4 + Biome / pnpm。
+Next.js 16（App Router）+ Supabase（PostgreSQL + Auth）+ **Prisma 7** + Tailwind CSS v4 + Biome / pnpm。
+
+> **2026-11-07 に認可の方針を変更した。** DB の RLS をやめ、アプリ層（`src/lib/data/`）に移した。古い記述を見かけたら `docs/05-decisions/ADR-0005-authorization-in-app-layer.md` が正。
 
 ## 作業を始める前に読む
 
@@ -33,14 +35,23 @@ Next.js 16（App Router）+ Supabase（PostgreSQL + Auth）+ Tailwind CSS v4 + B
 
 ## 絶対に守ること
 
-1. **Secret key（旧 `service_role` キー）を使わない。** RLS を完全にバイパスする。Publishable key（`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`）だけを使う。
-2. **認可の本体は PostgreSQL の RLS。** アプリのクエリに書く `household_id` の条件はセキュリティではない（`docs/05-decisions/ADR-0002-authorization-via-rls.md`）。
-3. **すべての Server Action の 1 行目で認証と世帯を取得する。** Server Action は UI を経由せず直接 POST できる。
-4. **`household_id` と `created_by` をクライアントから受け取らない。** サーバー側で `auth.uid()` から引いた値を使う。
-5. **`getSession()` を認可の判断に使わない。** `getUser()` を使う。
-6. **テーブルを作ったらその場で RLS を有効にする。** ポリシーには `to authenticated` を付ける。
-7. **金額は整数（円）。** 浮動小数点の演算を使わない。日付は `date` 型 / `"YYYY-MM-DD"` 文字列で、時刻を持たせない。
-8. **`any` を使わない。**
+**認可はアプリ層にしかない。最終防衛線が無い。** 1〜4 は設計が成立する条件そのもの。
+
+1. **`prisma` を `src/lib/data/` の外から import しない。** 画面と Server Action は DAL の関数だけを呼ぶ。
+   検出: `grep -rn "data/db" src --include="*.ts" --include="*.tsx" | grep -v "^src/lib/data/"` が 0 件
+2. **DAL のすべてのクエリに `householdId` の条件を付ける。** これが唯一の認可。
+   `update({ where: { id } })` を使わない → `updateMany({ where: { id, householdId } })` にして `count === 0` なら `NOT_FOUND`。
+3. **DAL の関数は世帯 ID を引数で受け取らない。** 関数の中で `requireMember()` から取る。`householdId` / `createdById` をクライアントから受け取らない。
+4. **DAL に関数を足したら認可テストを同じコミットで足す。** テストの無い DAL 関数を作らない。
+5. **`DATABASE_URL` は DB の全権を持つ。** `NEXT_PUBLIC_` を付けない。`src/lib/data/db.ts` 以外から参照しない。Secret key（旧 `service_role`）も使わない。
+6. **すべての Server Action の 1 行目で `requireMember()` を呼ぶ。** Server Action は UI を経由せず直接 POST できる。
+7. **`getSession()` を認可の判断に使わない。** `getUser()` を使う。
+8. **`categoryId` / `paidById` は参照先の所属を確認する。** 外部キーでは他世帯の ID を防げない。
+9. **金額は整数（円）。** 浮動小数点の演算を使わない。
+10. **`occurredOn`（`@db.Date`）の整形は UTC で行う。** ローカルタイムだと環境によって前日になる。
+11. **`any` を使わない。** `queryRawUnsafe` / `executeRawUnsafe` を使わない。
+
+RLS は**使わない**。Supabase の「RLS が無効です」警告は意図した状態。有効にしてもポリシーは効かない（Prisma は所有者ロールで接続する）ので、「守られているつもり」を作るだけ。
 
 ## この Next.js は 16.4.5
 
@@ -54,21 +65,29 @@ Next.js 16（App Router）+ Supabase（PostgreSQL + Auth）+ Tailwind CSS v4 + B
 ## コマンド
 
 ```bash
-pnpm dev      # 開発サーバー
-pnpm lint     # Biome。違反 0 であること
-pnpm build    # 型エラー・ビルドエラー 0 であること
-pnpm format   # 整形
+pnpm dev          # 開発サーバー
+pnpm lint         # Biome。違反 0 であること
+pnpm build        # 型エラー・ビルドエラー 0 であること
+pnpm test         # Vitest。全件通ること（M3 以降）
+pnpm format       # 整形
+
+pnpm db:generate  # Prisma Client を生成（schema.prisma を変えたら実行）
+pnpm db:migrate   # マイグレーションを作る
+pnpm db:deploy    # 本番に適用する
+pnpm db:status    # 適用状況を確認する
 ```
 
 ESLint も Prettier も入っていない。**Biome だけを使う。**
+
+スキーマの正は `prisma/schema.prisma`。**CHECK 制約は Prisma schema に書けない**ので、マイグレーションの SQL に手書きする。
 
 ## 作業の進め方
 
 1. `docs/04-development/task-list.md` で次のタスクを確認する。**進行中は常に 1 つまで。**
 2. 実装する。
-3. `pnpm lint` と `pnpm build` を通す。
+3. `pnpm lint` / `pnpm build` / `pnpm test` を通す。
 4. 受入条件（AC-ID）を**実際にブラウザで操作して**確認する（`docs/03-guidelines/testing-strategy.md`）。
-5. **M2 以降は毎回 AC-9（他世帯のデータが見えない）を実施する。**
+5. **M2 以降は毎回 AC-9（他世帯のデータが見えない）を実施する。** 認可がアプリ層にあるため、DAL に関数を足すたびに穴が開きうる。
 6. `task-list.md` を更新する。
 7. コミットする。**仕様を変えたらコードと同じコミットで `docs/` を直す。**
 
@@ -78,6 +97,7 @@ ESLint も Prettier も入っていない。**Biome だけを使う。**
 - `docs/00-overview/project-overview.md` §5.2 の「v1 に入れない」リスト。良さそうな機能を思いついても足さない。
 - 依存パッケージ。追加する場合は ADR を 1 本書く。
 - `next.config.ts` の既存の設定（`cacheComponents`, `partialPrefetching`, `reactCompiler`, `turbopack.rules`）。
+- `prisma` のバージョン。**npm の `latest` タグは RC（8.x）を指す。** 安定版は 7.10.1 で固定している。
 
 <!-- BEGIN:nextjs-agent-feedback -->
 

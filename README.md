@@ -25,11 +25,17 @@ AI エージェントで作業する場合は [`AGENTS.md`](./AGENTS.md) を参�
 | フレームワーク | Next.js 16.4.5（App Router） |
 | UI | React 19 + Tailwind CSS v4 |
 | DB・認証 | Supabase（PostgreSQL + Supabase Auth） |
-| 認可 | PostgreSQL の RLS（行レベルセキュリティ） |
+| データアクセス | Prisma 7（スキーマ・マイグレーション・クエリ） |
+| 認可 | **アプリ層**（`src/lib/data/`） |
 | Lint / Format | Biome |
+| テスト | Vitest（M3 で導入） |
 | パッケージ管理 | pnpm |
 
-選定理由 → [ADR-0001](./docs/05-decisions/ADR-0001-tech-stack.md)
+選定理由 → [ADR-0001](./docs/05-decisions/ADR-0001-tech-stack.md) / [ADR-0005](./docs/05-decisions/ADR-0005-authorization-in-app-layer.md)
+
+> **認可はアプリ層にある。** DB の RLS は使わない。Supabase ダッシュボードに出る「RLS が無効です」警告は**意図した状態**（[ADR-0005](./docs/05-decisions/ADR-0005-authorization-in-app-layer.md)）。
+>
+> そのため **`src/lib/data/` の `where` が唯一の砦**。`prisma` をそこ以外から import しない。詳細 → [セキュリティガイドライン](./docs/03-guidelines/security-guidelines.md)
 
 > **この Next.js は 16.4.5 で、一般的な記事と差がある。** Middleware は `proxy.ts` に改名され、`cacheComponents` が有効。一次情報は `node_modules/next/dist/docs/`。
 
@@ -46,29 +52,32 @@ pnpm dev                           # http://localhost:3000
 ### Supabase 側の準備（M1）
 
 1. Supabase で無料プロジェクトを作る
-2. `supabase/migrations/0001_init.sql` を SQL Editor に貼って実行する
-3. Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録する
-4. Project Settings → API の URL と公開キー（anon / publishable）を `.env.local` に設定する
+2. Project Settings → **Connect** の「Session pooler」（ポート **5432**）の接続文字列を `.env.local` の `DATABASE_URL` に設定する
+3. Project Settings → **API Keys** の Project URL と Publishable key を `.env.local` に設定する
+4. `pnpm db:deploy` でスキーマを適用する
+5. Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録する
 
-キーはダッシュボードの **Publishable key**（`sb_publishable_...`）を使う。**Secret key（旧 `service_role`）は使わない。** → [ADR-0002](./docs/05-decisions/ADR-0002-authorization-via-rls.md)
+| 変数 | 用途 | 注意 |
+| --- | --- | --- |
+| `DATABASE_URL` | Prisma の接続先 | **DB の全権を持つ。`NEXT_PUBLIC_` を付けない** |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Auth | ブラウザに出る |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Auth | ブラウザに出る |
 
-### マイグレーションのローカル検証
-
-SQL を SQL Editor に貼る前に、Docker 上の Postgres で検証できる（本番に触れない）。
-
-```bash
-./supabase/verify/run.sh
-```
-
-冪等性・権限・RLS の侵入確認（AC-9）までまとめて流す。詳細 → [`supabase/verify/README.md`](./supabase/verify/README.md)
+**Secret key（旧 `service_role`）は使わない。**
 
 ## コマンド
 
 ```bash
-pnpm dev      # 開発サーバー
-pnpm lint     # Biome（違反 0 であること）
-pnpm build    # 本番ビルド（型エラー 0 であること）
-pnpm format   # 整形
+pnpm dev          # 開発サーバー
+pnpm lint         # Biome（違反 0 であること）
+pnpm build        # 本番ビルド（型エラー 0 であること）
+pnpm format       # 整形
+
+pnpm db:generate  # Prisma Client を生成（スキーマを変えたら実行）
+pnpm db:migrate   # マイグレーションを作る
+pnpm db:deploy    # 本番に適用する
+pnpm db:status    # 適用状況を確認する
+pnpm db:studio    # データを覗く
 ```
 
 ESLint も Prettier も入っていない。**Biome だけを使う。**
@@ -77,8 +86,8 @@ ESLint も Prettier も入っていない。**Biome だけを使う。**
 
 | マイルストーン | 内容 | 状態 |
 | --- | --- | --- |
-| M0 | 土台の整備 | 進行中 |
-| M1 | Supabase プロジェクトと DB スキーマ | 未着手 |
+| M0 | 土台の整備 | 完了 |
+| M1 | Supabase プロジェクトと DB スキーマ（Prisma） | 進行中 |
 | M2 | 認証と世帯 | 未着手 |
 | M3 | 記録と一覧（**ここで v1 完成**） | 未着手 |
 | M4 | スマホ UI の仕上げ | 未着手 |

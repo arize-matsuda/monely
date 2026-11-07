@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma（生成物。pnpm prisma generate で作る）
+/src/generated/

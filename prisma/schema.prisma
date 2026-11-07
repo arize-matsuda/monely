@@ -1,0 +1,106 @@
+// Monely のスキーマ定義。
+// 設計意図は docs/02-design/database-design.md を参照。
+//
+// 認可はこのスキーマでは表現しない。すべて src/lib/data/ の Data Access Layer で
+// 世帯 ID で絞る（docs/05-decisions/ADR-0005-authorization-in-app-layer.md）。
+//
+// auth スキーマ（Supabase Auth が所有）は Prisma では管理しない。
+// Profile.userId が Supabase のユーザー ID を持つが、外部キーは張らない。
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// 支出 / 収入。金額の符号では表さず、この種別で向きを表す
+enum Kind {
+  expense
+  income
+
+  @@map("kind")
+}
+
+/// 家計簿を共有する単位。UI では「わが家」と呼ぶ
+model Household {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  name       String   @db.VarChar(30)
+  /// 6 桁の英数字（大文字）。家族の参加に使う。世帯の全データへのアクセス権と同等に扱う
+  inviteCode String   @unique @map("invite_code") @db.VarChar(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  profiles     Profile[]
+  categories   Category[]
+  transactions Transaction[]
+
+  @@map("households")
+}
+
+/// 世帯のメンバー。Supabase Auth のユーザーと 1:1
+model Profile {
+  id String @id @default(uuid(7)) @db.Uuid
+  /// Supabase Auth のユーザー ID。auth.users は Prisma の管理外なので外部キーは張らない
+  userId      String   @unique @map("user_id") @db.Uuid
+  displayName String   @map("display_name") @db.VarChar(20)
+  /// null = まだ世帯に未所属（セットアップ前）。これは正式な状態
+  householdId String?  @map("household_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  household           Household?    @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  paidTransactions    Transaction[] @relation("paidBy")
+  createdTransactions Transaction[] @relation("createdBy")
+
+  @@index([householdId])
+  @@map("profiles")
+}
+
+/// 支出用・収入用に分かれる。世帯ごとに持つ
+model Category {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  householdId String   @map("household_id") @db.Uuid
+  kind        Kind
+  name        String   @db.VarChar(20)
+  /// 表示順。「その他」は 999 で末尾に固定
+  sortOrder   Int      @default(0) @map("sort_order")
+  /// true = 新規登録の選択肢から外す。既存の記録には残る。削除はしない
+  archived    Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([householdId, kind, name])
+  @@index([householdId, kind, sortOrder])
+  @@map("categories")
+}
+
+/// 収支 1 件
+model Transaction {
+  id String @id @default(uuid(7)) @db.Uuid
+  /// DAL の where で必ず指定する。認可の要
+  householdId String @map("household_id") @db.Uuid
+  /// いつの支出か。date 型で時刻を持たない（タイムゾーンで日がずれないように）
+  occurredOn  DateTime @map("occurred_on") @db.Date
+  kind        Kind
+  /// 円。1 以上の整数。CHECK 制約はマイグレーションの SQL で追加する（Prisma schema では表現できない）
+  amount      Int
+  categoryId  String?  @map("category_id") @db.Uuid
+  /// 支払った人。メンバーが抜けても記録は残す
+  paidById    String?  @map("paid_by") @db.Uuid
+  memo        String?  @db.VarChar(200)
+  /// 入力した人。DAL でセッションから埋める。引数で受け取らない
+  createdById String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category  Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  paidBy    Profile?  @relation("paidBy", fields: [paidById], references: [id], onDelete: SetNull)
+  createdBy Profile   @relation("createdBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([householdId, occurredOn(sort: Desc), createdAt(sort: Desc)])
+  @@map("transactions")
+}

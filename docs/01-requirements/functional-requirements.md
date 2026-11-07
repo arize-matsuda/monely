@@ -89,18 +89,18 @@ ID の体系: `FR-A`=認証 / `FR-H`=世帯 / `FR-T`=記録 / `FR-L`=一覧と�
 
 | # | ルール | 担保する場所 |
 | --- | --- | --- |
-| BR-1 | 1 ユーザーは最大 1 つの世帯に所属する | `profiles.household_id` が単一値 / `create_household()` の所属チェック |
-| BR-2 | 金額は 1 以上の整数（円）。符号を持たない。向きは `kind` で表す | DB の `check (amount > 0)` / 入力検証 / Server Action の検証 |
-| BR-3 | 同じ世帯のメンバーは、誰が作った記録でも編集・削除できる | RLS ポリシー |
-| BR-4 | 自分以外のメンバーの表示名は変更できない | `profiles` の UPDATE ポリシー（`id = auth.uid()`） |
-| BR-5 | 記録の `household_id` は、サーバーが認証情報から決める。クライアントの値を使わない | Server Action / RLS の `with check` |
-| BR-6 | `created_by` は常にログイン中のユーザー。変更できない | RLS の `with check (created_by = auth.uid())` |
+| BR-1 | 1 ユーザーは最大 1 つの世帯に所属する | `Profile.householdId` が単一値 / 世帯作成時の所属チェック |
+| BR-2 | 金額は 1 以上の整数（円）。符号を持たない。向きは `kind` で表す | DB の CHECK 制約 / 入力検証 / Server Action の検証 |
+| BR-3 | 同じ世帯のメンバーは、誰が作った記録でも編集・削除できる | DAL（世帯 ID のみで絞り、作成者は見ない） |
+| BR-4 | 自分以外のメンバーの表示名は変更できない | DAL（自分の `Profile.id` のみを対象にする） |
+| BR-5 | 記録の `householdId` は、サーバーが認証情報から決める。クライアントの値を使わない | DAL（`requireMember()` から埋める。引数で受け取らない） |
+| BR-6 | `createdById` は常にログイン中のユーザー。変更できない | DAL（`requireMember()` から埋める。更新時は触らない） |
 | BR-7 | カテゴリは削除せず非表示にする。既存の記録の表示を壊さない | `archived` 列 / UI に削除操作を作らない |
-| BR-8 | カテゴリ名は世帯 × 種別の中で一意 | DB の `unique (household_id, kind, name)` |
-| BR-9 | 招待コードは全世帯で一意 | DB の `unique` 制約 / 生成時の衝突チェック |
+| BR-8 | カテゴリ名は世帯 × 種別の中で一意 | DB の一意制約 `(householdId, kind, name)` |
+| BR-9 | 招待コードは全世帯で一意。6 桁の英数字（大文字） | DB の一意制約 + CHECK 制約 / 生成時の衝突チェック |
 | BR-10 | 日付は時刻を持たない。タイムゾーンによって日が動いてはならない | `date` 型 / 文字列 `"YYYY-MM-DD"` で受け渡す |
 | BR-11 | メンバーが世帯から外れても、その人の記録は残る | `paid_by` の `on delete set null` |
-| BR-12 | 他の世帯のデータは、いかなる操作でも取得・変更できない | **RLS**（アプリの条件に依存しない） |
+| BR-12 | 他の世帯のデータは、いかなる操作でも取得・変更できない | **DAL のすべてのクエリの `householdId` 条件 + 認可テスト**（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)） |
 
 ---
 
@@ -193,6 +193,7 @@ ID の体系: `FR-A`=認証 / `FR-H`=世帯 / `FR-T`=記録 / `FR-L`=一覧と�
 - **期待 2**: 記録が表示されない（404 相当の表示になる）
 - **操作 3**: B のセッションから A の記録に対する更新・削除を試みる
 - **期待 3**: いずれも失敗する
+- **自動テスト**: 同じ内容を DAL の単体テストでも検証する（[セキュリティガイドライン §4.3](../03-guidelines/security-guidelines.md#43-約束-c-dal-の認可を自動テストで守る)）
 
 手順の詳細 → [テスト戦略 §4](../03-guidelines/testing-strategy.md)
 

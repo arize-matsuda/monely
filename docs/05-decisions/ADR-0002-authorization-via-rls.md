@@ -2,10 +2,14 @@
 
 | | |
 | --- | --- |
-| **状態** | 採用（Accepted） |
+| **状態** | **置き換え済み（Superseded by [ADR-0005](./ADR-0005-authorization-in-app-layer.md)、2026-11-07）** |
 | **日付** | 2026-11-07 |
 | **決定者** | 開発者本人 |
-| **関連** | [ADR-0001 技術スタック](./ADR-0001-tech-stack.md), [DB設計 §5](../02-design/database-design.md#5-権限と-rls行レベルセキュリティ), [セキュリティガイドライン](../03-guidelines/security-guidelines.md) |
+| **関連** | [ADR-0001 技術スタック](./ADR-0001-tech-stack.md), [ADR-0005](./ADR-0005-authorization-in-app-layer.md) |
+
+> **この決定はもう有効ではない。** 同日中に [ADR-0005](./ADR-0005-authorization-in-app-layer.md) で置き換えられ、認可はアプリ層（Data Access Layer）に移った。RLS は使わない。
+>
+> 本文は**記録として残す**。ここに書かれた懸念（書き忘れが漏洩になる、レビュアーがいない）は消えておらず、ADR-0005 の「約束 A/B/C」でどう埋めるかを決めている。**他世帯のデータが見えた場合は、まずこの ADR に戻ること。**
 
 ---
 
@@ -69,7 +73,7 @@ RLS を置いても、アプリ側の検証は不要にならない。両者は�
 | アプリ（Server Action 内の検証） | 他世帯の `category_id` / `paid_by` の紐付け | 検証の書き忘れ |
 | RLS | 他世帯の行の読み書き | 参照先の所属の不整合 |
 
-**どちらも必要。** 詳細 → [セキュリティガイドライン §4.4](../03-guidelines/security-guidelines.md#44-rls-で防げないこと)
+**どちらも必要。** 詳細 → [セキュリティガイドライン §4.4](../03-guidelines/security-guidelines.md#44-参照先の所属も確認する)（この論点は ADR-0005 でも引き継がれている）
 
 ---
 
@@ -86,10 +90,10 @@ RLS を置いても、アプリ側の検証は不要にならない。両者は�
 
 | 代償 | 対処 |
 | --- | --- |
-| RLS の学習コスト | [DB設計 §5](../02-design/database-design.md#5-権限と-rls行レベルセキュリティ) に書き方と注意点を記録 |
-| `profiles` のポリシーが自己参照して無限再帰する罠 | `current_household_id()` を `security definer` にする。理由を [DB設計 §4.1](../02-design/database-design.md#41-current_household_id) に明記 |
+| RLS の学習コスト | DB設計（当時の §5。現在の版には RLS の節は無い） に書き方と注意点を記録 |
+| `profiles` のポリシーが自己参照して無限再帰する罠 | `current_household_id()` を `security definer` にする。理由を DB設計（当時の §4.1） に明記 |
 | `security definer` 関数自体が穴になりうる | `set search_path = public` を必須にし、ID を引数で受け取らない設計を規約化 |
-| ポリシーの誤りがテストでは見つからない | [RLS の侵入確認](../03-guidelines/testing-strategy.md#42-rls-の侵入確認毎回実施)を M2 以降**毎回**実施する |
+| ポリシーの誤りがテストでは見つからない | [RLS の侵入確認](../03-guidelines/testing-strategy.md#42-認可の確認毎回実施)を M2 以降**毎回**実施する |
 | ORM が使いにくくなる | ORM を使わない（[ADR-0001](./ADR-0001-tech-stack.md)） |
 | 管理操作（全世帯を見る等）ができない | 必要なら Supabase ダッシュボードの SQL Editor で手で実行する。アプリに管理機能を作らない |
 

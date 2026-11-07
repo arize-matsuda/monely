@@ -6,6 +6,10 @@
 
 **このプロジェクトで最も重要な文書。** 他のガイドラインと衝突したら、こちらを優先する。
 
+> **2026-11-07 に守り方が変わった。** [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) で認可を DB（RLS）からアプリ層に移した。
+>
+> **これは「守りが 1 枚減った」ことを意味する。** 以前は `where` を書き忘れても DB が 0 行を返したが、いまは**書き忘れがそのまま漏洩になる**。だからこの文書の §4（3 つの約束）は、好ましい慣習ではなく**守らなければ設計が成立しない条件**である。
+
 ---
 
 ## 1. 守るべきもの・想定する脅威
@@ -16,17 +20,18 @@
 | メールアドレス | スパム、なりすましの足がかり |
 | セッション（認証 Cookie） | アカウントの乗っ取り |
 | 招待コード | 見知らぬ人が世帯に入り、全記録を読み書きできる |
+| **`DATABASE_URL`** | **DB の全権。全世帯のデータの読み書き・削除** |
 
 | 想定する脅威 | 対策 |
 | --- | --- |
-| **他の世帯のデータへのアクセス**（最重要） | RLS + アクション内の所属確認 |
-| Server Action の直接 POST | 全アクションで認証と世帯を再確認 |
-| URL の ID 書き換え（`/transactions/<他人の ID>`） | RLS で 0 行になる。`NOT_FOUND` を返す |
-| セッションの漏洩（CDN キャッシュ経由） | 認証 Cookie を含むレスポンスをキャッシュさせない |
-| 秘密情報のコミット | `.gitignore` + `service_role` キーを使わない |
-| メールアドレスの存在調査 | ログイン画面の応答を一定にする |
+| **他の世帯のデータへのアクセス**（最重要） | DAL での世帯 ID 絞り込み + 自動テスト（§4） |
+| Server Action の直接 POST | 全アクションで認証と世帯を再確認（§5） |
+| URL の ID 書き換え（`/transactions/<他人の ID>`） | DAL が世帯 ID 込みで検索し、0 件なら `NOT_FOUND` |
+| セッションの漏洩（CDN キャッシュ経由） | 認証 Cookie を含むレスポンスをキャッシュさせない（§8） |
+| 接続文字列の漏洩 | `.env.local` 限定、コミット禁止（§6） |
+| メールアドレスの存在調査 | ログイン画面の応答を一定にする（§3.2） |
 
-**想定しない脅威**: 標的型攻撃、DDoS、内部不正（利用者は家族のみ）。利用規模に見合わない対策で複雑さを持ち込まない。
+**想定しない脅威**: 標的型攻撃、DDoS、内部不正（利用者は家族のみ）。
 
 ---
 
@@ -38,22 +43,29 @@ flowchart TD
     Px --> Layout["② (app)/layout.tsx<br/>ログイン済みか / 世帯に所属しているか"]
     Layout -- "NG" --> Redirect["/login または /setup"]
     Layout -- "OK" --> Page["画面"]
-    Page --> Action["③ Server Action<br/>認証・世帯・入力を再検証"]
-    Action --> RLS["④ PostgreSQL RLS<br/>行レベルの最終判定"]
+    Page --> Action["③ Server Action<br/>認証・入力を検証"]
+    Action --> DAL["④ src/lib/data/<br/>世帯 ID で絞る ← 認可の本体"]
+    DAL --> DB[("PostgreSQL<br/>制約のみ（認可なし）")]
 ```
 
 | 段 | 役割 | 信頼度 | 省略できるか |
 | --- | --- | --- | --- |
 | ① `proxy.ts` | トークンの更新。**認可の判断をしない** | 低 | — |
 | ② レイアウトの振り分け | 画面を出さない（UX のため） | 中（迂回されうる） | — |
-| ③ Server Action / Route Handler | 認証・世帯・入力の検証 | 高 | **不可** |
-| ④ RLS | 行レベルの可否 | 最終防衛線 | **不可** |
+| ③ Server Action | 認証・入力の検証 | 高 | **不可** |
+| ④ **DAL** | **世帯 ID による絞り込み** | **ここが唯一の砦** | **不可** |
+| DB | 制約（金額 > 0、外部キー、一意） | データの正しさのみ | — |
 
-### 2.1 原則
+### 2.1 旧構成との違い
 
-1. **②だけで守った気にならない。** 画面を隠すことはデータを守ることではない。
-2. **③と④は両方必要。** ③は RLS が検出できない不整合（他世帯のカテゴリ ID を紐付ける等）を防ぐ。④はアプリのバグを防ぐ。
-3. **①に認可を置かない。** Next.js のドキュメントが「完全なセッション管理・認可の解決策として使うべきでない」と明記している。
+| | 旧（RLS） | 現在（アプリ層） |
+| --- | --- | --- |
+| 認可の場所 | PostgreSQL のポリシー | `src/lib/data/` の `where` |
+| `where` を書き忘れたとき | DB が 0 行を返す | **他世帯のデータが出る** |
+| 最終防衛線 | DB | **無い** |
+| 検出工程 | DB が構造的に保証 | **自動テストだけ** |
+
+**「最終防衛線が無い」ことを常に意識する。** だから §4 がある。
 
 ---
 
@@ -62,13 +74,13 @@ flowchart TD
 | 事項 | 方針 |
 | --- | --- |
 | 方式 | Supabase Auth のマジックリンク（パスワードなし） |
-| セッション | Cookie（`@supabase/ssr` が管理）。`httpOnly` / `secure` / `sameSite` はライブラリの既定に従う |
+| セッション | Cookie（`@supabase/ssr` が管理） |
 | トークンの更新 | `src/proxy.ts` で毎リクエスト時に実施 |
 | 確認方法 | **`supabase.auth.getUser()` を使う** |
 
 ### 3.1 `getSession()` に頼らない
 
-`getSession()` は Cookie の中身をそのまま返すため、改ざんの検証を伴わない。**サーバー側の判断には必ず `getUser()`（または `getClaims()`）を使う。**
+`getSession()` は Cookie の中身をそのまま返すため、改ざんの検証を伴わない。**サーバー側の判断には必ず `getUser()` を使う。**
 
 ```ts
 // ✗ サーバー側の認可判断に使ってはいけない
@@ -80,83 +92,118 @@ const { data: { user } } = await supabase.auth.getUser();
 
 ### 3.2 ログイン画面で情報を漏らさない
 
-メールアドレスが登録済みかどうかを応答から判別できないようにする（FR-A6, NFR-S7）。
+メールアドレスが登録済みかどうかを応答から判別できないようにする（FR-A6, NFR-S7）。送信後のメッセージは常に同一にし、Supabase 側がエラーを返した場合も同じ表示にする。
 
-- 送信後のメッセージは常に同一（「〜にリンクを送りました」）。
-- Supabase 側がエラーを返した場合も、同じメッセージを表示する。
-- 応答時間の差で判別されることまでは考慮しない（規模に見合わない）。
+### 3.3 Supabase のユーザー ID と `Profile.id` は別物
 
-### 3.3 招待コード
+| | 意味 |
+| --- | --- |
+| `user.id`（Supabase） | 認証の主体。`Profile.userId` に入る |
+| `Profile.id` | Monely 側の ID。`Transaction.paidById` などが参照する |
+
+**この 2 つを混同しない。** セッションから得られるのは `user.id` で、DAL で `Profile` を引いてから世帯 ID を得る。
+
+### 3.4 招待コード
 
 | 事項 | 内容 |
 | --- | --- |
 | 強度 | 6 桁の英数字（大文字）。36^6 ≈ 22 億通り |
-| 生成 | `create_household()` 内で生成し、既存との衝突を確認 |
-| 扱い | **世帯の全記録への読み書き権限と同等。** パスワードと同じ扱いで伝える（口頭、または家族間のメッセージ） |
-| 制限 | v1 では試行回数の制限を設けない。**不審な参加があった場合はコードを再発行する機能を追加する**（v1 には無い） |
+| 生成 | `node:crypto` の `randomInt` / `randomBytes` を使う。**`Math.random()` を使わない** |
+| 扱い | **世帯の全記録への読み書き権限と同等。** パスワードと同じ扱いで伝える |
+| 制限 | v1 では試行回数の制限を設けない |
 
-**注意**: 現状、コードの再発行ができない。漏れた場合は SQL で `invite_code` を直接更新する必要がある。v2 で再発行機能を検討する。
+**注意**: 現状、コードの再発行機能が無い。漏れた場合は Prisma Studio か SQL で `inviteCode` を直接更新する。v2 で再発行機能を検討する。
 
 ---
 
-## 4. 認可
+## 4. 認可 — 3 つの約束
 
-### 4.1 RLS が本体
+[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) の約束 A/B/C。**これが認可の全体。** 1 つでも破れば設計が成立しない。
 
-4 テーブルすべてで RLS を有効にし、「自分の世帯の行だけ」に限定する。定義 → [DB設計 §5](../02-design/database-design.md#5-権限と-rls行レベルセキュリティ) / 判断の経緯と守るべき前提 → [ADR-0002](../05-decisions/ADR-0002-authorization-via-rls.md)
+### 4.1 約束 A: `prisma` を DAL の外から import しない
 
-```sql
--- 必ずこの形。to authenticated を忘れない（anon に開かない）
-create policy transactions_select on public.transactions
-  for select to authenticated
-  using (household_id = public.current_household_id());
-```
-
-### 4.2 テーブルを足したときの手順
-
-1. `alter table ... enable row level security` を**その場で**書く。
-2. **`revoke all on <table> from anon, authenticated;` を書いてから、必要な操作だけ `grant` する。**
-3. 提供する操作の分だけポリシーを書く（提供しない操作はポリシーを作らない = 全拒否）。
-4. UPDATE には `using` と `with check` を**両方**書く。
-5. [RLS の侵入確認](./testing-strategy.md#42-rls-の侵入確認毎回実施)を再実行する。
-
-#### 2 を省略すると TRUNCATE で全世帯のデータが消える
-
-Supabase は既定で `public` の新規テーブルに `ALL` を付与する。`ALL` には **TRUNCATE が含まれ、TRUNCATE は RLS の対象外**。
-
-```sql
--- ログイン済みの誰でも実行できてしまう（RLS は止められない）
-truncate public.transactions;
-```
-
-**ローカルの Postgres 17 で実際に再現した**（2026-11-07、`supabase/verify/`）。`DELETE` は RLS が 0 行に抑えるが、`TRUNCATE` は素通りする。
-
-→ [DB設計 §5.0](../02-design/database-design.md#50-テーブル権限先に剥がしてから付け直す)
-
-RLS を有効にしてポリシーを書かないテーブルは「誰も読めない」状態になる。これは安全側の失敗。**迷ったらポリシーを書かない。**
-
-### 4.3 `security definer` 関数の作り方
-
-| 必須 | 理由 |
-| --- | --- |
-| `set search_path = public` を付ける | `search_path` を差し替えられて別のテーブルを参照させられるのを防ぐ |
-| 引数で**ユーザー ID や世帯 ID を受け取らない** | 呼び出し側が他人の ID を渡せてしまう。見るのは `auth.uid()` だけ |
-| `revoke all ... from public` → `grant execute ... to authenticated` | 匿名ユーザーから実行できないようにする |
-| 関数の中で `auth.uid()` の null を確認する | 未認証での実行を弾く |
-
-### 4.4 RLS で防げないこと
-
-**他世帯の ID を外部キーに紐付ける操作は、RLS だけでは防げない。**
+データベースに触るのは `src/lib/data/` の中だけ。画面と Server Action は DAL の関数しか呼ばない。
 
 ```ts
-// transactions の with check は household_id と created_by しか見ない。
-// category_id に他世帯のカテゴリ ID を入れても通ってしまう。
+// ✗ src/app/(app)/page.tsx
+import { prisma } from "@/lib/data/db";          // 禁止
+
+// ✓
+import { listTransactionsByMonth } from "@/lib/data/transactions";
 ```
 
-そのため、**アクション内で参照先の所属を確認する**（→ [API設計 §4.3](../02-design/api-design.md#43-記録srcactionstransactionsts)）。
+**理由**: 認可の書き忘れが起きる場所を 1 ディレクトリに閉じる。レビュー対象を絞る。
 
-- `categoryId` → 自分の世帯の、`kind` が一致するカテゴリであること
-- `paidBy` → 自分の世帯のメンバーであること
+**検出**:
+
+```bash
+# DAL の外から db を import していないか（0 件であること）
+grep -rn "data/db" src --include="*.ts" --include="*.tsx" | grep -v "^src/lib/data/"
+```
+
+### 4.2 約束 B: DAL の関数は世帯 ID を引数で受け取らない
+
+```ts
+// ✗ 呼び出し側が他世帯の ID を渡せる
+export async function listTransactions(householdId: string, month: string) { ... }
+
+// ✓ 関数の中でセッションから取る
+export async function listTransactionsByMonth(month: string) {
+  const me = await requireMember();
+  return prisma.transaction.findMany({
+    where: { householdId: me.householdId, ... },
+  });
+}
+```
+
+**同じ理由で、以下もクライアントから受け取らない。**
+
+| 値 | どこから取るか |
+| --- | --- |
+| `householdId` | `requireMember()` の戻り値 |
+| `createdById` | `requireMember()` の戻り値（`me.profileId`） |
+| `userId` | `supabase.auth.getUser()` |
+
+### 4.3 約束 C: DAL の認可を自動テストで守る
+
+**書き忘れを検出する工程は他に無い。** Vitest で、別世帯のデータが取れないことを検証する。
+
+```ts
+// 例: src/lib/data/transactions.test.ts
+it("他世帯の記録を返さない", async () => {
+  const { householdA, householdB } = await seedTwoHouseholds();
+  await asMember(householdB.member, async () => {
+    const rows = await listTransactionsByMonth("2026-11");
+    expect(rows).toHaveLength(0);          // A の記録が混ざらない
+  });
+});
+
+it("他世帯の記録を ID 指定でも返さない", async () => {
+  // getTransaction(aTransactionId) が null を返すこと
+});
+
+it("他世帯の記録を更新・削除できない", async () => {
+  // 0 件更新 / NOT_FOUND になること
+});
+```
+
+**DAL に関数を 1 つ足したら、その関数の認可テストを同じコミットで足す。** テストが無い DAL 関数をマージしない。
+
+→ [テスト戦略](./testing-strategy.md)
+
+### 4.4 参照先の所属も確認する
+
+外部キーは「その行が存在するか」しか見ない。**他世帯のカテゴリやメンバーを紐付けられる。**
+
+```ts
+// categoryId が自分の世帯のものか、kind が一致するかを確認する
+const category = await prisma.category.findFirst({
+  where: { id: categoryId, householdId: me.householdId, kind, archived: false },
+});
+if (!category) return fail("VALIDATION", "選択できないカテゴリです", "categoryId");
+```
+
+同じことを `paidById`（自分の世帯のメンバーか）にも行う。
 
 ### 4.5 存在を漏らさない
 
@@ -167,8 +214,6 @@ RLS を有効にしてポリシーを書かないテーブルは「誰も読め�
 ## 5. Server Action の書き方
 
 **Server Action は UI を経由せず直接 POST できる。** ボタンを隠しても守りにならない。
-
-### 5.1 必ず守る 4 ステップ
 
 ```ts
 "use server";
@@ -181,29 +226,21 @@ export async function createTransaction(formData: FormData) {
   const parsed = parseTransactionInput(formData);
   if (!parsed.ok) return parsed;
 
-  // ③ 参照先の所属を確認する（RLS では防げない）
-  if (parsed.value.categoryId && !(await belongsToHousehold(parsed.value.categoryId, me))) {
-    return fail("VALIDATION", "選択できないカテゴリです", "categoryId");
-  }
-
-  // ④ DB を操作する。household_id / created_by はサーバーの値を使う
-  await supabase.from("transactions").insert({
-    ...parsed.value,
-    household_id: me.householdId,   // ← クライアントの値を使わない
-    created_by: me.userId,          // ← 同上
-  });
+  // ③ 参照先の所属を確認する（§4.4）
+  // ④ DAL を呼ぶ。householdId / createdById は DAL が me から埋める
+  await createTransactionForMe(parsed.value);
 }
 ```
 
-### 5.2 禁止事項
+### 5.1 禁止事項
 
 | してはいけないこと | 何が起きるか |
 | --- | --- |
-| クライアントから `household_id` を受け取って DB に書く | 他世帯にデータを書き込める |
-| クライアントから `created_by` を受け取る | 入力者を偽れる |
+| クライアントから `householdId` を受け取って保存する | 他世帯にデータを書き込める |
+| クライアントから `createdById` を受け取る | 入力者を偽れる |
 | 認証の確認を「呼び出し元の画面でやっているから」と省略する | 直接 POST で迂回される |
 | 検証をクライアント側だけで行う | 迂回される |
-| 読み取り関数の中で認可を判断する | 判断箇所が散る。RLS に任せる |
+| アクションから `prisma` を直接触る | 約束 A 違反。認可の場所が散る |
 
 ---
 
@@ -211,33 +248,36 @@ export async function createTransaction(formData: FormData) {
 
 | 事項 | 方針 |
 | --- | --- |
-| 置き場所 | `.env.local`。**コミットしない** |
+| 置き場所 | **`.env.local` 1 つ**（Next.js と Prisma CLI で共用）。コミットしない |
 | 例の提供 | `.env.local.example` に変数名のみ（値は空） |
-| `.gitignore` | `.env*` で除外済み。`.env.local.example` は `!.env.local.example` で除外解除が必要 |
-| ブラウザに出てよいもの | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`（Publishable key。旧 anon キー） |
-| **使わないもの** | Secret key（旧 `service_role` キー） |
+| `.gitignore` | `.env*` で除外。`!.env.local.example` で雛形だけ除外解除 |
+| ブラウザに出てよいもの | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
+| **ブラウザに出してはいけないもの** | **`DATABASE_URL`** |
+| 使わないもの | Supabase の Secret key（旧 `service_role` キー） |
 
-### 6.1 `service_role` キーを使わない
+### 6.1 `DATABASE_URL` の扱い
 
-このキーは **RLS を完全にバイパスする**。アプリに持ち込むと、ここまでの設計の前提がすべて崩れる。
+RLS を使わないため、**この接続文字列はテーブルの全権（読み書き・削除・TRUNCATE）を持つ**。
+
+- `NEXT_PUBLIC_` を**絶対に付けない**（付けるとブラウザのバンドルに埋め込まれる）
+- 画面やクライアントコンポーネントから参照しない（`src/lib/data/db.ts` だけが読む）
+- ログやエラーメッセージに出さない
 
 ```bash
 # 定期的に確認する
-grep -rn "service_role" src/
-# → 0 件であること（NFR-S3）
+grep -rn "DATABASE_URL" src/ | grep -v "src/lib/data/db.ts"   # 0 件であること
+grep -rn "NEXT_PUBLIC_DATABASE" .                              # 0 件であること
 ```
-
-「管理用に 1 箇所だけ」も作らない。必要になったら Supabase ダッシュボードの SQL Editor で手で実行する。
 
 ### 6.2 コミットしてしまった場合
 
-1. Supabase ダッシュボードでキーをローテーションする（これが最優先。履歴を消しても漏れたキーは無効にならない）。
-2. `git` の履歴から削除する。
-3. `.gitignore` を直す。
+1. Supabase ダッシュボードで **DB のパスワードをリセット**する（履歴を消しても漏れた文字列は無効にならない）
+2. `git` の履歴から削除する
+3. `.gitignore` を直す
 
 ### 6.3 `NEXT_PUBLIC_` の意味を誤解しない
 
-`NEXT_PUBLIC_` が付いた変数は**ブラウザのバンドルに埋め込まれる**。秘密にしたい値に付けてはならない。逆に、付いていない変数はクライアントから参照できない。
+`NEXT_PUBLIC_` が付いた変数は**ブラウザのバンドルに埋め込まれる**。秘密にしたい値に付けてはならない。
 
 ---
 
@@ -248,24 +288,29 @@ grep -rn "service_role" src/
 | サーバー側で必ず検証する | クライアント側の検証は利便性のため。**代わりにならない**（NFR-S8） |
 | 範囲を決める | 金額は 1〜9,999,999。メモは 200 文字。表示名は 20 文字 |
 | 型を変換する | `FormData` の値は `string`。数値・日付は明示的に変換し、失敗を検証エラーにする |
-| 列挙は許可リストで照合する | `kind` は `"expense" \| "income"` のどちらかであることを確認 |
-| 参照先の所属を確認する | `categoryId` / `paidBy` は自分の世帯のものか（§4.4） |
-| DB の制約を最終防衛にする | `check (amount > 0)`、`check (kind in (...))`、外部キー、一意制約 |
+| 列挙は許可リストで照合する | `kind` が `"expense" \| "income"` のどちらかであることを確認 |
+| 参照先の所属を確認する | §4.4 |
+| DB の制約を最終防衛にする | CHECK（`amount > 0`、空文字でない）、enum、外部キー、一意制約 |
 
-### 7.1 SQL インジェクション
+### 7.1 全角数字に注意
 
-Supabase クライアント（PostgREST）を使う限り、値はパラメータとして送られるため発生しない。**ただし以下は避ける。**
+スマホの日本語キーボードでは全角が混入しやすい。`parseAmount` で全角を弾くか半角に正規化し、**テストケースに含める**。
 
-- 生の SQL 文字列を組み立てて `rpc` に渡す。
-- `.or()` や `.filter()` にユーザー入力を直接埋め込む（PostgREST のフィルタ構文として解釈される）。
+### 7.2 SQL インジェクション
 
-### 7.2 XSS
+Prisma のクエリビルダを使う限り、値はパラメータとして送られるため発生しない。**`$queryRaw` / `$executeRaw` を使わない。** どうしても必要な場合はタグ付きテンプレート（`$queryRaw\`...\``）を使い、文字列連結で組み立てない。
 
-React は既定で文字列をエスケープする。**`dangerouslySetInnerHTML` を使わない。** メモ欄は自由文を受け取るが、そのまま `{memo}` として描画すれば安全。
+```bash
+grep -rn "queryRawUnsafe\|executeRawUnsafe" src/   # 0 件であること
+```
 
-### 7.3 CSRF
+### 7.3 XSS
 
-Server Action は Next.js が Origin を検証するため、基本的な保護が入っている。独自の Route Handler で POST を受ける場合は自分で対策が必要になるが、**v1 では `/auth/callback` の GET 以外に Route Handler を作らない**。
+React は既定で文字列をエスケープする。**`dangerouslySetInnerHTML` を使わない。** メモ欄は自由文を受け取るが、`{memo}` として描画すれば安全。
+
+### 7.4 CSRF
+
+Server Action は Next.js が Origin を検証するため、基本的な保護が入っている。**v1 では `/auth/callback` の GET 以外に Route Handler を作らない。**
 
 ---
 
@@ -289,16 +334,14 @@ setAll(cookiesToSet, headers) {
 
 ### 8.2 キャッシュキーに個人情報を入れない
 
-`cacheComponents` が有効なため、`use cache` / `cacheTag` を使う場面がありうる。**キーとタグは平文で保存される**（Next.js のドキュメントが明記）。
+`cacheComponents` が有効なため、`use cache` / `cacheTag` を使う場面がありうる。**キーとタグは平文で保存される。**
 
 - ✗ `cacheTag("transactions:" + email)`
-- ✓ `cacheTag("transactions:" + userId)`
-
-メールアドレス、トークン、メモの内容などを入れない（NFR-S4）。
+- ✓ `cacheTag("transactions:" + householdId)`
 
 ### 8.3 ログに個人情報を出さない
 
-`console.error` にエラーを出す際、メールアドレスや金額を含めない。ID までに留める。
+`console.error` にエラーを出す際、メールアドレスや金額を含めない。ID までに留める。**Prisma のクエリログを本番で有効にしない**（パラメータに金額やメモが出る）。
 
 ---
 
@@ -306,7 +349,7 @@ setAll(cookiesToSet, headers) {
 
 | してはいけないこと | 代わりに |
 | --- | --- |
-| DB のエラー文をそのまま画面に出す | 「保存できませんでした。もう一度お試しください」 |
+| Prisma のエラーをそのまま画面に出す | 「保存できませんでした。もう一度お試しください」 |
 | スタックトレースを画面に出す | `console.error` に出し、画面には一般的なメッセージ |
 | 「権限がありません」と「見つかりません」を区別する | どちらも `NOT_FOUND` |
 | 「このメールアドレスは登録されていません」 | 常に「リンクを送りました」 |
@@ -317,46 +360,36 @@ setAll(cookiesToSet, headers) {
 
 マイルストーンの完了前に毎回確認する。
 
+### 約束 A/B/C
+
+- [ ] `grep -rn "data/db" src --include="*.ts" --include="*.tsx" | grep -v "^src/lib/data/"` が 0 件
+- [ ] DAL のすべての関数が世帯 ID を引数で受け取っていない
+- [ ] DAL のすべてのクエリに `householdId` の条件がある（目で全件確認する。v1 では 15 本程度）
+- [ ] DAL のすべての関数に認可テストがある
+
 ### コード
 
 - [ ] すべての Server Action の 1 行目で認証と世帯を取得している
-- [ ] `household_id` / `created_by` をクライアントから受け取っていない
-- [ ] `categoryId` / `paidBy` の所属をアクション内で確認している
+- [ ] `householdId` / `createdById` をクライアントから受け取っていない
+- [ ] `categoryId` / `paidById` の所属を確認している
 - [ ] `getSession()` を認可の判断に使っていない
-- [ ] `grep -rn "service_role" src/` が 0 件
 - [ ] `dangerouslySetInnerHTML` を使っていない
+- [ ] `queryRawUnsafe` / `executeRawUnsafe` を使っていない
 - [ ] `proxy.ts` で `setAll` の第 2 引数のヘッダを設定している
 - [ ] キャッシュキー・タグに個人情報が入っていない
-- [ ] エラーメッセージに DB の内部情報が出ていない
+- [ ] エラーメッセージに Prisma の内部情報が出ていない
 
-### DB
+### 秘密情報
 
-- [ ] 新しいテーブルに RLS が有効
-- [ ] **`authenticated` の権限に TRUNCATE / TRIGGER / REFERENCES が残っていない**（下の SQL で確認）
-- [ ] `anon` にテーブル権限が 1 つも無い
-- [ ] ポリシーに `to authenticated` が付いている
-- [ ] UPDATE のポリシーに `using` と `with check` の両方がある
-- [ ] `security definer` 関数に `set search_path = public` が付いている
-- [ ] `security definer` 関数が ID を引数で受け取っていない
-
-```sql
--- 権限の確認。authenticated に TRUNCATE などが混ざっていないこと、anon が 0 行であること
-select grantee, table_name, string_agg(privilege_type, ',' order by privilege_type) as privs
-from information_schema.table_privileges
-where grantee in ('anon', 'authenticated') and table_schema = 'public'
-group by grantee, table_name
-order by grantee, table_name;
-```
+- [ ] `grep -rn "DATABASE_URL" src/ | grep -v "src/lib/data/db.ts"` が 0 件
+- [ ] `NEXT_PUBLIC_DATABASE` のような変数が存在しない
+- [ ] `.env.local` がコミットされていない（`git log --all -- .env.local` が空）
+- [ ] `git log -p` に接続文字列が出ていない
 
 ### 動作
 
-- [ ] [RLS の侵入確認](./testing-strategy.md#42-rls-の侵入確認毎回実施) を実施した（**毎回**）
+- [ ] [AC-9（他世帯のデータが見えない）](../01-requirements/functional-requirements.md#ac-9-他世帯のデータが見えないfr-x2-br-12最重要) を実施した（**毎回**）
 - [ ] ログイン画面の応答が、登録済み・未登録で同じ
-
-### リポジトリ
-
-- [ ] `.env.local` がコミットされていない（`git log --all -- .env.local` が空）
-- [ ] `git log -p` に鍵が出ていない
 
 ---
 
@@ -364,9 +397,9 @@ order by grantee, table_name;
 
 | 事象 | 対応 |
 | --- | --- |
-| キーをコミットした | ① Supabase でキーをローテーション ② git 履歴から削除 ③ `.gitignore` を修正 |
-| 招待コードが漏れた | SQL で `households.invite_code` を更新する（再発行機能が無いため） |
-| 他世帯のデータが見えた | **すぐに他の作業を止める。** RLS のポリシーを確認し、修正してから侵入確認を再実行 |
+| **他世帯のデータが見えた** | **すぐに他の作業を止める。** 該当の DAL 関数の `where` を修正 → 認可テストを追加 → 全 DAL 関数を見直す。[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) の「見直す条件」に該当するので、RLS への回帰も検討する |
+| `DATABASE_URL` をコミットした | ① Supabase で DB パスワードをリセット ② git 履歴から削除 ③ `.gitignore` を修正 |
+| 招待コードが漏れた | Prisma Studio か SQL で `inviteCode` を更新する（再発行機能が無いため） |
 | セッションが漏れた疑い | Supabase ダッシュボードから該当ユーザーのセッションを失効させる |
 
 ---
@@ -375,12 +408,12 @@ order by grantee, table_name;
 
 | 対応しないもの | 理由 | 見直す条件 |
 | --- | --- | --- |
+| RLS（DB 側の認可） | [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) の判断 | **AC-9 が 1 度でも落ちたら回帰を検討。** 公開・開発者増加・DB 経路増加でも回帰 |
 | 招待コードの試行回数制限 | 22 億通りで、利用者が家族のみ | 外部に公開する場合 |
-| 招待コードの再発行機能 | v1 のスコープ外。SQL で対応可能 | コードが漏れた場合 |
+| 招待コードの再発行機能 | v1 のスコープ外 | コードが漏れた場合 |
 | 多要素認証 | マジックリンクがメールの所有確認を兼ねている | — |
-| 監査ログ | `created_by` と `updated_at` で足りる | 利用者が増えた場合 |
-| CSP（Content Security Policy） | 外部スクリプトを読み込まないため効果が薄い | 外部サービスを組み込む場合 |
-| 依存パッケージの脆弱性スキャン | 依存が 5 つで、手で追える | 依存が増えた場合 |
+| 監査ログ | `createdById` と `updatedAt` で足りる | 利用者が増えた場合 |
+| CSP | 外部スクリプトを読み込まないため効果が薄い | 外部サービスを組み込む場合 |
 | レート制限 | 利用者が家族のみ | 外部に公開する場合 |
 
-**この表は「考えていない」ではなく「判断して外した」ものの記録。** 条件が変わったら見直す。
+**この表は「考えていない」ではなく「判断して外した」ものの記録。**

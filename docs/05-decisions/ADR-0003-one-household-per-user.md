@@ -5,7 +5,9 @@
 | **状態** | 採用（Accepted） |
 | **日付** | 2026-11-07 |
 | **決定者** | 開発者本人 |
-| **関連** | [ADR-0002 認可を RLS に置く](./ADR-0002-authorization-via-rls.md), [DB設計](../02-design/database-design.md) |
+| **関連** | [ADR-0005 認可をアプリ層に置く](./ADR-0005-authorization-in-app-layer.md), [DB設計](../02-design/database-design.md) |
+
+> **根拠が変わった（2026-11-07）** — [ADR-0005](./ADR-0005-authorization-in-app-layer.md) で RLS をやめたため、「ポリシーが 1 行で済む」「関数の裏に隠せば移行できる」という本文の主たる根拠は失効した。**決定自体は維持する**が、現在の根拠は「v1 の要件に複数所属が無い」「世帯切り替え UI が不要で入力が速い」「DAL の `where` が単純になる」である。将来複数世帯に対応する場合、DAL の全関数で「選択中の世帯」を解決する処理が必要になる。
 
 ---
 
