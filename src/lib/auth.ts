@@ -1,5 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { findOrCreateProfile } from "./data/profile";
 import { createSupabaseServerClient } from "./supabase/server";
 import type { Me, Member } from "./types";
@@ -15,6 +16,12 @@ import type { Me, Member } from "./types";
  */
 
 export async function getMe(): Promise<Me | null> {
+  // supabase-js はトークンの期限判定で Date.now() を読む。
+  // cacheComponents 有効下ではプリレンダリング中の不安定な値として警告されるため、
+  // リクエスト時に評価されることを明示する。
+  // → Next.js の blocking-prerender-current-time の推奨どおり
+  await connection();
+
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },

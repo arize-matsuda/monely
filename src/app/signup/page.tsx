@@ -15,6 +15,19 @@ export default function SignUpPage() {
       }
     >
       <SignUpForm />
+
+      {/*
+        既存のメールアドレスで登録しようとしても、Supabase は何も送らずに
+        成功を返す（アカウントの存在を漏らさないため）。こちらも表示を変えない
+        ので、待っても届かない状態になりうる。その旨を先に伝えておく。
+        → docs/05-decisions/ADR-0006-email-password-auth.md
+      */}
+      <p className="mt-6 text-xs leading-relaxed text-muted">
+        すでに登録済みのメールアドレスの場合、確認メールは届きません。
+        <AuthLink href="/login">ログイン</AuthLink>をお試しください。
+        パスワードが分からない場合は
+        <AuthLink href="/login/link">ログインリンク</AuthLink>で入れます。
+      </p>
     </AuthShell>
   );
 }
