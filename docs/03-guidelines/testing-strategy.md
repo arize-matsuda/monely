@@ -56,6 +56,12 @@ pnpm test     # Vitest。全件通ること（M3 以降）
 加えて、grep による静的チェックを回す（[セキュリティガイドライン §10](./security-guidelines.md#10-実装後のチェックリスト)）。
 
 ```bash
+# PostgREST が塞がっているか（401 であること）。マイグレーションを適用したら毎回
+set -a && . ./.env.local && set +a
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
+  "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/transactions?select=id&limit=1"
+
 # 約束 A: prisma を DAL の外から import していないか（0 件であること）
 grep -rn "data/db" src --include="*.ts" --include="*.tsx" | grep -v "^src/lib/data/"
 
@@ -201,6 +207,7 @@ pnpm db:status          # 適用済みのマイグレーションを確認
 - [ ] Supabase の Table Editor に 4 テーブルが見える
 - [ ] CHECK 制約が入っている（下の SQL）
 - [ ] Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` がある
+- [ ] **Publishable key で `/rest/v1/<テーブル>` を叩いて 401 / 42501 になる**（[セキュリティガイドライン §2.2](./security-guidelines.md#22-postgrest-を-public-スキーマから締め出す必須)）
 
 ```sql
 -- CHECK 制約の確認。5 件あること

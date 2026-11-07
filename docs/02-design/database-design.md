@@ -196,6 +196,31 @@ DB 側の enum 型になるため、不正な値は DB が拒否する（旧構�
 
 ---
 
+## 4.1 ロールとテーブル権限
+
+Supabase の DB には 4 つのロールがある。このアプリが使うのは **`postgres` だけ**。
+
+| ロール | 誰が使うか | public スキーマへの権限 |
+| --- | --- | --- |
+| `postgres` | **Prisma（このアプリ）** | 全権（テーブルの所有者） |
+| `service_role` | 使わない（Secret key のロール） | 全権 |
+| `authenticated` | PostgREST（ログイン済み） | **なし**（剥奪済み） |
+| `anon` | PostgREST（未ログイン） | **なし**（剥奪済み） |
+
+### なぜ剥奪が必要か
+
+Supabase は DB の上に PostgREST（`/rest/v1/...`）を自動で立てる。これは `anon` / `authenticated` で動き、**ブラウザに埋め込まれる Publishable key だけで叩ける**。
+
+RLS を使わない構成では行を絞る仕組みが無いため、**既定のままだと全テーブルが公開される**（2026-11-07 に実測で確認）。`prisma/migrations/0002_revoke_postgrest_access` で権限を剥奪した。
+
+詳細と確認方法 → [セキュリティガイドライン §2.2](../03-guidelines/security-guidelines.md#22-postgrest-を-public-スキーマから締め出す必須)
+
+### 将来のテーブルも守られる
+
+Supabase の既定権限（新規テーブルに `anon` へ `ALL` を付与）を、`postgres` ロール向けに打ち消してある。実際にテーブルを作って `anon` / `authenticated` に権限が付かないことを確認済み。
+
+---
+
 ## 5. 主要なクエリ
 
 認可は**関数の中**で行う。世帯 ID を引数で受け取らない（ADR-0005 の約束 B）。

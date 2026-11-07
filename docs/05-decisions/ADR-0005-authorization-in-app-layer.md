@@ -120,6 +120,7 @@ RLS という構造的な保証を手放すため、**それに代わるもの�
 
 | 失うもの | 影響 | 埋め方 |
 | --- | --- | --- |
+| **PostgREST に対する行レベルの防御** | Publishable key で REST API を叩かれたときに守るものが無い | `anon` / `authenticated` から `public` の権限を完全に剥奪する（上の注意点 7） |
 | **書き忘れが漏洩にならない保証** | `where: { householdId }` が 1 箇所抜けると他世帯のデータが出る | 約束 A/B/C。特に **C（テスト）が唯一の検出工程** |
 | DB が最終防衛線でなくなる | アプリのバグがそのまま漏洩になる | 同上 |
 | SQL Editor から触っても保護される性質 | 手作業のミスが防げない | 本番 DB を手で触る作業を避ける。変更は必ずマイグレーションで |
@@ -137,6 +138,7 @@ RLS という構造的な保証を手放すため、**それに代わるもの�
 | 4 | `prisma migrate dev` はシャドーデータベースを要求する。Supabase で権限不足になる場合は `shadowDatabaseUrl` を別途用意する（セットアップ時に実地で確認する） |
 | 5 | `auth` スキーマを Prisma に introspect させない（`schemas = ["public"]` 相当の設定、または `auth` を触らない運用） |
 | 6 | Supabase ダッシュボードに「RLS が無効です」という警告が出続ける。**これは意図した状態**。ただし「あとで有効にしよう」と勘違いしないよう、この ADR へのリンクを README に置く |
+| **7** | **Supabase の PostgREST（`/rest/v1/...`）が全テーブルを公開してしまう。** RLS が無く、Supabase の既定権限が `anon` に `ALL` を付けるため、ブラウザに埋め込まれる Publishable key だけで読み取り・挿入・削除ができる状態になっていた（2026-11-07 に実測）。`prisma/migrations/0002_revoke_postgrest_access` で `anon` / `authenticated` から `public` の権限を剥奪し、既定権限も打ち消した。**テーブルを足したら毎回確認する** → [セキュリティガイドライン §2.2](../03-guidelines/security-guidelines.md#22-postgrest-を-public-スキーマから締め出す必須) |
 
 ### ADR-0003（1 ユーザー = 1 世帯）への影響
 

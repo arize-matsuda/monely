@@ -29,7 +29,7 @@
 | | |
 | --- | --- |
 | **進行中のマイルストーン** | **M1 完了（2026-11-07）。次は M2（認証と世帯）** |
-| **次にやること** | M2-1 環境変数の読み取りヘルパー。ただし M1-9（Redirect URLs の登録、**手作業**）が未了 |
+| **次にやること** | M2-1 環境変数の読み取りヘルパー |
 | **方針変更** | 2026-11-07 に認可を RLS からアプリ層に移した → [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) |
 | **ブロッカー** | なし |
 
@@ -84,8 +84,11 @@
 
 ### 未着手
 
-- [ ] M1-9 Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録（**手作業**。M2 までに必要）
-- [ ] M1-14 **DB パスワードのローテーション**（Prisma CLI がプロセス引数に平文で渡すため、セッションログに露出した）
+（なし）
+
+### 見送った判断
+
+- **M1-14 DB パスワードのローテーション** — 開発者の判断で見送り（2026-11-08）。Prisma CLI は接続文字列をプロセス引数に平文で渡すため `ps` で見える。漏れた疑いが出たら Project Settings → Database から Reset database password を実行する。
 
 ### 完了
 
@@ -102,6 +105,29 @@
 - [x] M1-8 `pnpm db:deploy` で本番に適用（2026-11-07）
 - [x] M1-10 本番スキーマの確認（テーブル 4、enum、CHECK 5 件、外部キー 6、インデックス、RLS 無効）（2026-11-07）
 - [x] M1-15 アプリ実行時の接続経路を実機確認（Transaction pooler + driver adapter で `$transaction` まで動作）（2026-11-07）
+- [x] M1-9 Redirect URLs を登録（2026-11-08）
+- [x] M1-16 Supabase Auth の環境変数を設定（2026-11-08。`.supabase.com` → `.supabase.co` の誤りを修正）
+- [x] M1-17 **PostgREST の公開を塞ぐ**（`0002_revoke_postgrest_access`）（2026-11-08）
+
+### M1 で見つけて直した不具合（2）
+
+**Publishable key だけで全テーブルが読み書きできる状態だった。**
+
+Supabase は DB の上に PostgREST（`/rest/v1/...`）を自動で立てる。これは `anon` / `authenticated` ロールで動き、ブラウザに埋め込まれる Publishable key だけで叩ける。RLS を外したため行を絞る仕組みが無く、さらに Supabase の既定権限が新規テーブルに `anon` へ `ALL` を付けるため、公開状態になっていた。
+
+実測（2026-11-08、修正前）:
+
+| 操作 | 結果 |
+| --- | --- |
+| `GET /rest/v1/transactions` | **200**（全世帯の記録が読める） |
+| `POST /rest/v1/households` | **23514**（CHECK 制約まで到達 = 権限はある） |
+| `DELETE /rest/v1/transactions?id=eq..` | **204**（削除できる） |
+
+修正: `prisma/migrations/0002_revoke_postgrest_access` で `anon` / `authenticated` から `public` の権限を剥奪し、既定権限も打ち消した。適用後は全操作が **401 / 42501** になった。将来のテーブルにも権限が付かないことを、実際にテーブルを作って確認した。
+
+> **先日の TRUNCATE の穴と同じ根本原因**（Supabase の既定権限）。RLS を外したことで現れ方が変わっただけ。テーブルを足したら毎回 REST API を叩いて確認する運用にした。
+
+`revoke usage on schema public` は効かなかった（`USAGE` は `PUBLIC` 疑似ロール経由で付与されているため）。実際に防いでいるのはテーブル権限の剥奪。マイグレーション 0002 のコメントはこの点を過大に書いているが、**適用済みマイグレーションは Prisma がチェックサムを検証するため編集できない**ので、ドキュメント側で補足した。
 
 ### 方針変更でやったこと
 
@@ -132,7 +158,10 @@
 
 | ファイル | 状態 |
 | --- | --- |
-| `0001_init` | **適用済み**（2026-11-07） |
+| `0001_init` | 適用済み（2026-11-07） |
+| `0002_revoke_postgrest_access` | 適用済み（2026-11-08） |
+
+**適用済みのマイグレーション SQL は編集しない。** Prisma がチェックサムを検証するため、編集すると `migrate deploy` が失敗する。
 
 ## M2 — 認証と世帯
 
@@ -274,7 +303,18 @@ v1 を 1 か月使ってから判断する。候補は [プロダクト要件 §
 - アプリ実行時の経路（Next.js → driver adapter → Transaction pooler 6543）:
   - 単純クエリ OK / `include` でリレーション取得 OK / **`$transaction` OK** / CHECK 制約の拒否 OK / cascade delete OK
   - `occurredOn` は `2026-11-07T00:00:00.000Z`。JST では UTC 整形とローカル整形がどちらも「11月7日」になる（**負のオフセット環境なら前日になる。UTC 固定が必要**）
-- 残課題: M1-9（Redirect URLs の登録）、**M1-14（DB パスワードのローテーション）**
+- 残課題: なし
+
+### M1 追加確認（2026-11-08）
+
+- `.env.local`: 4 変数すべて設定済み（`NEXT_PUBLIC_SUPABASE_URL` の `.supabase.com` → `.supabase.co` を修正）
+- Supabase Auth: `/auth/v1/settings` HTTP 200、新規登録 有効、`mailer_autoconfirm: false`（マジックリンクが機能する）、email プロバイダ 有効
+- `pnpm db:deploy`: `0002_revoke_postgrest_access` を適用
+- **PostgREST の遮断**: Publishable key での 4 テーブルの読み取り・INSERT・DELETE がすべて **401 / 42501**
+- `anon` / `authenticated` の `public` テーブル権限: **0 件**
+- 将来のテーブル: 実際に作成して `anon` / `authenticated` に権限が付かないことを確認
+- Prisma（postgres ロール）: `DATABASE_URL` / `DIRECT_URL` の両方で読み取り可能（影響なし）
+- Redirect URLs: 登録済み（公開 API からは読めないため、M2 のログインで実地確認する）
 
 ### M0 確認結果（2026-11-07）
 

@@ -27,6 +27,7 @@
 | **他の世帯のデータへのアクセス**（最重要） | DAL での世帯 ID 絞り込み + 自動テスト（§4） |
 | Server Action の直接 POST | 全アクションで認証と世帯を再確認（§5） |
 | URL の ID 書き換え（`/transactions/<他人の ID>`） | DAL が世帯 ID 込みで検索し、0 件なら `NOT_FOUND` |
+| **Publishable key による PostgREST 経由の直接アクセス** | `anon` / `authenticated` から `public` の権限を剥奪（§2.2） |
 | セッションの漏洩（CDN キャッシュ経由） | 認証 Cookie を含むレスポンスをキャッシュさせない（§8） |
 | 接続文字列の漏洩 | `.env.local` 限定、コミット禁止（§6） |
 | メールアドレスの存在調査 | ログイン画面の応答を一定にする（§3.2） |
@@ -66,6 +67,56 @@ flowchart TD
 | 検出工程 | DB が構造的に保証 | **自動テストだけ** |
 
 **「最終防衛線が無い」ことを常に意識する。** だから §4 がある。
+
+---
+
+## 2.2 PostgREST を public スキーマから締め出す（必須）
+
+Supabase は DB の上に **PostgREST**（`/rest/v1/...`）を自動で立てる。これは `anon` / `authenticated` ロールで動き、**Publishable key だけで叩ける**。Publishable key はブラウザのバンドルに埋め込まれる公開値である。
+
+RLS を使う構成ではポリシーが行を絞っていたが、[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) で RLS をやめた結果、**Publishable key だけで全テーブルの読み取り・挿入・削除ができる状態になっていた**（2026-11-07 に実測）。
+
+```
+GET    /rest/v1/transactions          -> 200          （全世帯の記録が読める）
+POST   /rest/v1/households            -> 23514        （CHECK 制約まで到達 = 権限はある）
+DELETE /rest/v1/transactions?id=eq... -> 204          （削除できる）
+```
+
+原因は Supabase の既定設定。`public` に作られた新規テーブルへ `anon` / `authenticated` に `ALL` を付与する。
+
+```sql
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+```
+
+### 対策（`prisma/migrations/0002_revoke_postgrest_access`）
+
+このアプリは **supabase-js をデータアクセスに使わない**（認証のみ）。DB へは Prisma が `postgres` ロールで接続する。よって `anon` / `authenticated` には `public` へのアクセスを一切与えない。
+
+```sql
+revoke all on all tables in schema public from anon, authenticated;
+-- 将来 postgres ロールが作るテーブルにも権限が付かないようにする
+alter default privileges in schema public revoke all on tables from anon, authenticated;
+```
+
+適用後は `42501 permission denied` になる。
+
+> **`revoke usage on schema public` は効かない。** `public` スキーマへの `USAGE` は `PUBLIC` 疑似ロール経由で付与されているため、`anon` を名指しで revoke しても `has_schema_privilege('anon','public','USAGE')` は `true` のまま。
+> **実際に防いでいるのはテーブル権限の剥奪と既定権限の打ち消し。** マイグレーション 0002 のコメントはこの点を過大に書いているが、適用済みのため修正していない（Prisma がチェックサムを検証するので、適用済みマイグレーションは編集できない）。
+
+### テーブルを足すたびに確認する
+
+既定権限は打ち消したので自動では戻らない（実証済み）。ただし Supabase 側の設定変更で復活しうるため、**マイグレーションを適用したら毎回確認する**。
+
+```bash
+# Publishable key で REST API を叩く。401 / 42501 であること
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
+  "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/transactions?select=id&limit=1"
+```
+
+### 追加で固めるなら
+
+Supabase ダッシュボード → Project Settings → API の **Exposed schemas** から `public` を外すと、PostgREST 自体が `public` を見なくなる。DB 側の revoke で既に塞がっているので必須ではないが、二重化になる。
 
 ---
 
@@ -366,6 +417,11 @@ setAll(cookiesToSet, headers) {
 
 マイルストーンの完了前に毎回確認する。
 
+### PostgREST の遮断（テーブルを足したら毎回）
+
+- [ ] Publishable key で `/rest/v1/<テーブル>` を叩いて **401 / 42501** になる（§2.2）
+- [ ] `anon` / `authenticated` の `public` テーブル権限が 0 件
+
 ### 約束 A/B/C
 
 - [ ] `grep -rn "data/db" src --include="*.ts" --include="*.tsx" | grep -v "^src/lib/data/"` が 0 件
@@ -403,6 +459,7 @@ setAll(cookiesToSet, headers) {
 
 | 事象 | 対応 |
 | --- | --- |
+| **Publishable key でテーブルが読めた** | **すぐに他の作業を止める。** `0002_revoke_postgrest_access` の revoke が効いているか確認し、効いていなければ新しいマイグレーションで再度 revoke する（§2.2） |
 | **他世帯のデータが見えた** | **すぐに他の作業を止める。** 該当の DAL 関数の `where` を修正 → 認可テストを追加 → 全 DAL 関数を見直す。[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) の「見直す条件」に該当するので、RLS への回帰も検討する |
 | 接続文字列が漏れた（コミット・`ps`・画面共有） | ① Supabase で **DB パスワードをリセット** ② `.env.local` の 2 本を更新 ③ コミットしていたら git 履歴から削除 |
 | 招待コードが漏れた | Prisma Studio か SQL で `inviteCode` を更新する（再発行機能が無いため） |
