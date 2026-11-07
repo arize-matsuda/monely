@@ -1,37 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Monely
 
-## Getting Started
+> スマホで数秒で記録できて、家族と同じ家計簿を見られる、自作の家計管理アプリ。
 
-First, run the development server:
+既存の家計簿アプリが「入力が面倒」「家族の支出が見えない」「機能が多すぎる」で続かなかったので、記録と一覧だけに絞って自作している。
+
+## ドキュメント
+
+**設計の「正」は [`docs/`](./docs) にある。実装の前に読む。**
+
+| | |
+| --- | --- |
+| [docs/README.md](./docs/README.md) | 全ドキュメントの索引 |
+| [プロジェクト概要](./docs/00-overview/project-overview.md) | 何を作るのか、**何を作らないのか** |
+| [タスクリスト](./docs/04-development/task-list.md) | いま何をすべきか |
+| [実装計画](./docs/04-development/implementation-plan.md) | マイルストーン M0〜M5 |
+| [設計判断（ADR）](./docs/05-decisions) | **勝手に変えない判断の記録** |
+
+AI エージェントで作業する場合は [`AGENTS.md`](./AGENTS.md) を参照（`CLAUDE.md` はこれを読み込むだけ）。
+
+## 技術スタック
+
+| 層 | 選定 |
+| --- | --- |
+| フレームワーク | Next.js 16.4.5（App Router） |
+| UI | React 19 + Tailwind CSS v4 |
+| DB・認証 | Supabase（PostgreSQL + Supabase Auth） |
+| 認可 | PostgreSQL の RLS（行レベルセキュリティ） |
+| Lint / Format | Biome |
+| パッケージ管理 | pnpm |
+
+選定理由 → [ADR-0001](./docs/05-decisions/ADR-0001-tech-stack.md)
+
+> **この Next.js は 16.4.5 で、一般的な記事と差がある。** Middleware は `proxy.ts` に改名され、`cacheComponents` が有効。一次情報は `node_modules/next/dist/docs/`。
+
+## セットアップ
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+cp .env.local.example .env.local   # 値は Supabase の設定からコピーする
+pnpm dev                           # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`.env.local` の値は **M1（Supabase プロジェクトの作成）** で揃う。それまでは画面の表示確認のみ可能。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Supabase 側の準備（M1）
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Supabase で無料プロジェクトを作る
+2. `supabase/migrations/0001_init.sql` を SQL Editor に貼って実行する
+3. Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録する
+4. Project Settings → API の URL と公開キー（anon / publishable）を `.env.local` に設定する
 
-## Learn More
+**`service_role` キーは使わない。** → [ADR-0002](./docs/05-decisions/ADR-0002-authorization-via-rls.md)
 
-To learn more about Next.js, take a look at the following resources:
+## コマンド
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm dev      # 開発サーバー
+pnpm lint     # Biome（違反 0 であること）
+pnpm build    # 本番ビルド（型エラー 0 であること）
+pnpm format   # 整形
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+ESLint も Prettier も入っていない。**Biome だけを使う。**
 
-## Deploy on Vercel
+## 現在の状態
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| マイルストーン | 内容 | 状態 |
+| --- | --- | --- |
+| M0 | 土台の整備 | 進行中 |
+| M1 | Supabase プロジェクトと DB スキーマ | 未着手 |
+| M2 | 認証と世帯 | 未着手 |
+| M3 | 記録と一覧（**ここで v1 完成**） | 未着手 |
+| M4 | スマホ UI の仕上げ | 未着手 |
+| M5 | PWA 化 | 未着手 |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# monely
+詳細は [タスクリスト](./docs/04-development/task-list.md)。

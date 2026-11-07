@@ -28,8 +28,8 @@
 
 | | |
 | --- | --- |
-| **進行中のマイルストーン** | M0（未着手） |
-| **次にやること** | M0-1 スキャフォールドの残骸を削除 |
+| **進行中のマイルストーン** | M1（未着手）。M0 は完了（2026-11-07） |
+| **次にやること** | M1-1 Supabase に無料プロジェクトを作る（**手作業**） |
 | **ブロッカー** | なし |
 
 ---
@@ -51,22 +51,31 @@
 
 ## M0 — 土台の整備
 
+**完了（2026-11-07）**
+
 ### 未着手
-
-- [ ] M0-1 スキャフォールドの残骸を削除（`src/app/page.tsx` の既定の中身、`public/*.svg`）
-- [ ] M0-2 `README.md` を Monely の内容に書き換える（`docs/` への導線を入れる）
-- [ ] M0-3 ルートレイアウトを整える（`lang="ja"`、メタデータ、日本語フォント、`viewport`）
-- [ ] M0-4 デザイントークンを `globals.css` に定義（ライト / ダーク）
-- [ ] M0-5 `.env.local.example` を作成
-- [ ] M0-6 `.gitignore` に `!.env.local.example` を追加
-- [ ] M0-7 `pnpm lint` / `pnpm build` を通す
-- [ ] M0-8 コミット（Supabase の依存追加分を含む）
-
-### 完了
 
 （なし）
 
----
+### 完了
+
+- [x] M0-1 スキャフォールドの残骸を削除（`src/app/page.tsx` の既定の中身、`public/*.svg` 5 件）（2026-11-07）
+- [x] M0-2 `README.md` を Monely の内容に書き換える（`docs/` への導線を入れる）（2026-11-07）
+- [x] M0-3 ルートレイアウトを整える（`lang="ja"`、メタデータ、日本語フォント、`viewport`）（2026-11-07）
+- [x] M0-4 デザイントークンを `globals.css` に定義（ライト / ダーク）（2026-11-07）
+- [x] M0-5 `.env.local.example` を作成（2026-11-07）
+- [x] M0-6 `.gitignore` に `!.env.local.example` を追加（2026-11-07）
+- [x] M0-7 `pnpm lint` / `pnpm build` を通す（2026-11-07）
+- [x] M0-8 コミット（Supabase の依存追加分は `d4f30db` で別途コミット済み）（2026-11-07）
+
+### M0 でやったことの補足
+
+- フォントは `Geist`（英数字）＋ システムの日本語フォントのスタック。`Geist_Mono` は未使用のため読み込みをやめた。金額の桁揃えは Tailwind の `tabular-nums` を使う。
+- `--accent` はダークモードでも同じ値（`#4f46e5`）を使う。near-black 上でも白文字が 6.2:1 を確保でき、ボタン自体も背景に対して 3:1 を満たすため。
+- `instant = false` はルートレイアウトに置いていない（[ADR-0004](../05-decisions/ADR-0004-instant-false-for-authed-segments.md) のとおり、認証後の `(app)` レイアウトに置く）。
+- `src/app/page.tsx` は土台確認用のプレースホルダ。**M2 で `src/app/(app)/page.tsx` を作るときに削除する**（同じ `/` に解決されるため共存できない）。
+- `public/` は空になった。PWA アイコンを M5 で入れる。
+- `next dev` が `AGENTS.md` に `nextjs-agent-feedback` ブロックを追記した（`experimental.agentFeedback` が有効なため）。追記分はそのままコミットしている。
 
 ## M1 — Supabase プロジェクトと DB スキーマ
 
@@ -227,12 +236,21 @@ v1 を 1 か月使ってから判断する。候補は [プロダクト要件 §
 
 マイルストーン完了時にここへ追記する（新しいものを上に）。
 
-```markdown
-### M0 確認結果（2026-11-xx）
-- pnpm lint: OK
-- pnpm build: OK
-- 画面表示: OK
-- 残課題: なし
-```
+### M0 確認結果（2026-11-07）
 
-（まだ記録なし）
+- `pnpm lint`: OK（Biome 違反 0。`pnpm format` で 2 ファイル整形後）
+- `pnpm build`: OK（型エラー 0、警告なし。`/` と `/_not-found` が Static）
+- `pnpm dev` での表示: OK（HTTP 200、`lang="ja"`、`theme-color` のライト / ダーク両方が出力されている）
+- デザイントークン: OK（コンパイル後の CSS に `:root` とダークモードの両ブロックが生成され、`text-income` などのユーティリティが CSS 変数を参照している）
+- `.env.local.example`: OK（`.gitignore` の `.env*` に負けず追跡できる）
+- **未確認**: ブラウザでの見た目（配色・余白）の目視確認。HTML と CSS の出力までは確認済み
+- 残課題: なし
+
+> 記録のテンプレート
+> ```markdown
+> ### Mx 確認結果（YYYY-MM-DD）
+> - pnpm lint: OK
+> - pnpm build: OK
+> - AC-x: OK
+> - 残課題: なし
+> ```

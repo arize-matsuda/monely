@@ -1,69 +1,65 @@
-import Image from "next/image";
+/*
+ * 土台の確認用のプレースホルダ。
+ * M2 で認証後のルートグループ src/app/(app)/page.tsx を作る際に、このファイルは削除する
+ * （同じ "/" に解決されるため共存できない）。
+ * → docs/04-development/implementation-plan.md M2
+ */
 
-export default function Home() {
+const tokens = [
+  { name: "background", className: "bg-background" },
+  { name: "surface", className: "bg-surface" },
+  { name: "border", className: "bg-border" },
+  { name: "foreground", className: "bg-foreground" },
+  { name: "muted", className: "bg-muted" },
+  { name: "accent", className: "bg-accent" },
+  { name: "income", className: "bg-income" },
+  { name: "danger", className: "bg-danger" },
+];
+
+export default function Page() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-10">
+      <h1 className="text-2xl font-semibold tracking-tight">Monely</h1>
+      <p className="mt-1 text-muted">わが家の家計簿</p>
+
+      <section className="mt-8 rounded-xl border border-border bg-surface p-4">
+        <h2 className="text-sm font-medium text-muted">土台の確認</h2>
+        <dl className="mt-3 space-y-2 text-sm">
+          <div className="flex items-baseline justify-between">
+            <dt className="text-muted">支出</dt>
+            <dd className="tabular-nums">¥182,400</dd>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <dt className="text-muted">収入</dt>
+            <dd className="text-income tabular-nums">+¥320,000</dd>
+          </div>
+          <div className="flex items-baseline justify-between border-t border-border pt-2">
+            <dt className="text-muted">差額</dt>
+            <dd className="text-income tabular-nums">+¥137,600</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="mt-4 rounded-xl border border-border bg-surface p-4">
+        <h2 className="text-sm font-medium text-muted">
+          カラートークン（OS のダークモードで切り替わる）
+        </h2>
+        <ul className="mt-3 grid grid-cols-2 gap-2 text-xs">
+          {tokens.map((token) => (
+            <li key={token.name} className="flex items-center gap-2">
+              <span
+                className={`${token.className} size-5 shrink-0 rounded border border-border`}
+              />
+              <span className="font-mono text-muted">{token.name}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <p className="mt-8 text-xs text-muted">
+        次の実装は M1（Supabase のスキーマ適用）。 進行状況は
+        docs/04-development/task-list.md を参照。
+      </p>
+    </main>
   );
 }
