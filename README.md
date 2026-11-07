@@ -52,14 +52,17 @@ pnpm dev                           # http://localhost:3000
 ### Supabase 側の準備（M1）
 
 1. Supabase で無料プロジェクトを作る
-2. Project Settings → **Connect** の「Session pooler」（ポート **5432**）の接続文字列を `.env.local` の `DATABASE_URL` に設定する
+2. Project Settings → **Connect** から接続文字列を 2 本取り、`.env.local` に設定する
+   - `DATABASE_URL` … **Transaction pooler**（ポート 6543）
+   - `DIRECT_URL` … **Session pooler**（ポート 5432）
 3. Project Settings → **API Keys** の Project URL と Publishable key を `.env.local` に設定する
 4. `pnpm db:deploy` でスキーマを適用する
 5. Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録する
 
 | 変数 | 用途 | 注意 |
 | --- | --- | --- |
-| `DATABASE_URL` | Prisma の接続先 | **DB の全権を持つ。`NEXT_PUBLIC_` を付けない** |
+| `DATABASE_URL` | アプリのクエリ（6543） | **DB の全権を持つ。`NEXT_PUBLIC_` を付けない** |
+| `DIRECT_URL` | マイグレーション（5432） | 同上。**6543 に向けるとマイグレーションがハングする** |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase Auth | ブラウザに出る |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Auth | ブラウザに出る |
 
@@ -87,8 +90,8 @@ ESLint も Prettier も入っていない。**Biome だけを使う。**
 | マイルストーン | 内容 | 状態 |
 | --- | --- | --- |
 | M0 | 土台の整備 | 完了 |
-| M1 | Supabase プロジェクトと DB スキーマ（Prisma） | 進行中 |
-| M2 | 認証と世帯 | 未着手 |
+| M1 | Supabase プロジェクトと DB スキーマ（Prisma） | 完了 |
+| M2 | 認証と世帯 | 次 |
 | M3 | 記録と一覧（**ここで v1 完成**） | 未着手 |
 | M4 | スマホ UI の仕上げ | 未着手 |
 | M5 | PWA 化 | 未着手 |

@@ -20,7 +20,7 @@
 | メールアドレス | スパム、なりすましの足がかり |
 | セッション（認証 Cookie） | アカウントの乗っ取り |
 | 招待コード | 見知らぬ人が世帯に入り、全記録を読み書きできる |
-| **`DATABASE_URL`** | **DB の全権。全世帯のデータの読み書き・削除** |
+| **`DATABASE_URL` / `DIRECT_URL`** | **DB の全権。全世帯のデータの読み書き・削除** |
 
 | 想定する脅威 | 対策 |
 | --- | --- |
@@ -252,7 +252,7 @@ export async function createTransaction(formData: FormData) {
 | 例の提供 | `.env.local.example` に変数名のみ（値は空） |
 | `.gitignore` | `.env*` で除外。`!.env.local.example` で雛形だけ除外解除 |
 | ブラウザに出てよいもの | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
-| **ブラウザに出してはいけないもの** | **`DATABASE_URL`** |
+| **ブラウザに出してはいけないもの** | **`DATABASE_URL`, `DIRECT_URL`** |
 | 使わないもの | Supabase の Secret key（旧 `service_role` キー） |
 
 ### 6.1 `DATABASE_URL` の扱い
@@ -265,9 +265,15 @@ RLS を使わないため、**この接続文字列はテーブルの全権（�
 
 ```bash
 # 定期的に確認する
-grep -rn "DATABASE_URL" src/ | grep -v "src/lib/data/db.ts"   # 0 件であること
-grep -rn "NEXT_PUBLIC_DATABASE" .                              # 0 件であること
+grep -rn "DATABASE_URL\|DIRECT_URL" src/ | grep -v "src/lib/data/db.ts"   # 0 件であること
+grep -rn "NEXT_PUBLIC_DATABASE\|NEXT_PUBLIC_DIRECT" .                     # 0 件であること
 ```
+
+### 6.1.1 Prisma CLI はパスワードをプロセス引数に渡す
+
+`prisma migrate` 系を実行すると、スキーマエンジンのプロセス引数に接続文字列が**平文で載る**（`ps` で他のプロセスから見える）。Prisma の実装に由来するため回避できない。
+
+**画面共有・スクリーンショット・ログの貼り付けで漏れやすい。** 漏れた疑いがあれば Supabase で DB パスワードをリセットする。
 
 ### 6.2 コミットしてしまった場合
 
@@ -398,7 +404,7 @@ setAll(cookiesToSet, headers) {
 | 事象 | 対応 |
 | --- | --- |
 | **他世帯のデータが見えた** | **すぐに他の作業を止める。** 該当の DAL 関数の `where` を修正 → 認可テストを追加 → 全 DAL 関数を見直す。[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) の「見直す条件」に該当するので、RLS への回帰も検討する |
-| `DATABASE_URL` をコミットした | ① Supabase で DB パスワードをリセット ② git 履歴から削除 ③ `.gitignore` を修正 |
+| 接続文字列が漏れた（コミット・`ps`・画面共有） | ① Supabase で **DB パスワードをリセット** ② `.env.local` の 2 本を更新 ③ コミットしていたら git 履歴から削除 |
 | 招待コードが漏れた | Prisma Studio か SQL で `inviteCode` を更新する（再発行機能が無いため） |
 | セッションが漏れた疑い | Supabase ダッシュボードから該当ユーザーのセッションを失効させる |
 

@@ -28,8 +28,8 @@
 
 | | |
 | --- | --- |
-| **進行中のマイルストーン** | M1（Prisma のセットアップ完了。残りは接続情報の設定と適用） |
-| **次にやること** | M1-7 `.env.local` に `DATABASE_URL` を設定（**手作業**）→ M1-8 `pnpm db:deploy` |
+| **進行中のマイルストーン** | **M1 完了（2026-11-07）。次は M2（認証と世帯）** |
+| **次にやること** | M2-1 環境変数の読み取りヘルパー。ただし M1-9（Redirect URLs の登録、**手作業**）が未了 |
 | **方針変更** | 2026-11-07 に認可を RLS からアプリ層に移した → [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) |
 | **ブロッカー** | なし |
 
@@ -84,10 +84,8 @@
 
 ### 未着手
 
-- [ ] M1-7 `.env.local` に `DATABASE_URL` を設定（**手作業**。Supabase の Session pooler, ポート 5432）
-- [ ] M1-8 `pnpm db:deploy` で本番に適用する
-- [ ] M1-9 Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録（**手作業**）
-- [ ] M1-10 [テスト戦略 §4.3](../03-guidelines/testing-strategy.md#43-スキーマとマイグレーションの確認m1) のチェックリストを実施
+- [ ] M1-9 Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録（**手作業**。M2 までに必要）
+- [ ] M1-14 **DB パスワードのローテーション**（Prisma CLI がプロセス引数に平文で渡すため、セッションログに露出した）
 
 ### 完了
 
@@ -100,6 +98,10 @@
 - [x] M1-11 `.gitignore` / `biome.json` から生成物（`src/generated/`）を除外（2026-11-07）
 - [x] M1-12 `package.json` に `db:*` スクリプトを追加（2026-11-07）
 - [x] M1-13 旧 RLS 資産（`supabase/`）を削除（2026-11-07）
+- [x] M1-7 `.env.local` に `DATABASE_URL`（6543）と `DIRECT_URL`（5432）を設定（2026-11-07）
+- [x] M1-8 `pnpm db:deploy` で本番に適用（2026-11-07）
+- [x] M1-10 本番スキーマの確認（テーブル 4、enum、CHECK 5 件、外部キー 6、インデックス、RLS 無効）（2026-11-07）
+- [x] M1-15 アプリ実行時の接続経路を実機確認（Transaction pooler + driver adapter で `$transaction` まで動作）（2026-11-07）
 
 ### 方針変更でやったこと
 
@@ -111,6 +113,11 @@
 
 | 事項 | 内容 |
 | --- | --- |
+| **マイグレーションは Transaction pooler（6543）では通らない** | 4 分待っても応答が返らずハングした。DDL とアドバイザリロックを使うため。`prisma.config.ts` は CLI 専用なので、`datasource.url` に `DIRECT_URL`（5432）を入れて解決 |
+| **アプリ側は Transaction pooler で問題なく動く** | driver adapter（`pg`）経由で、単純クエリ・`include`・**`$transaction`**・CHECK 制約の拒否がすべて動作した |
+| **Prisma CLI はパスワードをプロセス引数に渡す** | `ps` で平文で見える。Prisma の実装に由来し回避できない。画面共有やログで漏れやすい |
+| `_` 始まりのディレクトリは Next.js のルーティング対象外 | 検証用に `src/app/_check/` を作ったら 404。private folder の規則 |
+| `pg` の `ssl: true` は失敗する | Supabase のプーラー証明書が自己署名チェーン（`SELF_SIGNED_CERT_IN_CHAIN`）。Prisma は自前で扱うので実害なし |
 | npm の `latest` が RC を指している | Prisma の `latest` タグが `8.0.0-rc.33`。安定版の最新は **7.10.1**。`prisma@7.10.1` に固定した |
 | pnpm のビルドスクリプト許可が必要 | `pnpm-workspace.yaml` の `allowBuilds` に `@prisma/engines` と `prisma` を追加。許可しないとエンジンが落ちてこない |
 | Prisma 7 は driver adapter 必須 | `@prisma/adapter-pg` + `pg`。`new PrismaClient({ adapter })` の形 |
@@ -125,7 +132,7 @@
 
 | ファイル | 状態 |
 | --- | --- |
-| `0001_init` | **未適用**（M1-8 で適用） |
+| `0001_init` | **適用済み**（2026-11-07） |
 
 ## M2 — 認証と世帯
 
@@ -258,14 +265,16 @@ v1 を 1 か月使ってから判断する。候補は [プロダクト要件 §
 
 マイルストーン完了時にここへ追記する（新しいものを上に）。
 
-### M1 確認結果（2026-11-07、方針変更後）
+### M1 確認結果（2026-11-07）
 
-- `pnpm lint`: OK
-- `pnpm build`: OK（型エラー 0。Prisma Client の型が通る）
-- `prisma validate`: OK
-- 初期マイグレーション SQL の生成: OK（4 テーブル・6 インデックス・6 外部キー・CHECK 5 件）
-- **未確認**: 本番への適用（`DATABASE_URL` 未設定のため）。`pnpm db:deploy` が M1-8
-- 旧 RLS 構成の検証結果は [ADR-0002](../05-decisions/ADR-0002-authorization-via-rls.md) の記録として残すが、その構成は使わない
+- `pnpm lint`: OK / `pnpm build`: OK（型エラー 0）
+- `pnpm db:deploy`: OK（`0001_init` 適用済み）
+- `pnpm db:status`: 「Database schema is up to date!」
+- 本番スキーマ: テーブル 4 + `_prisma_migrations` / `kind` enum / **CHECK 制約 5 件** / 外部キー 6 / インデックス 10 / **RLS はすべて false（意図どおり）**
+- アプリ実行時の経路（Next.js → driver adapter → Transaction pooler 6543）:
+  - 単純クエリ OK / `include` でリレーション取得 OK / **`$transaction` OK** / CHECK 制約の拒否 OK / cascade delete OK
+  - `occurredOn` は `2026-11-07T00:00:00.000Z`。JST では UTC 整形とローカル整形がどちらも「11月7日」になる（**負のオフセット環境なら前日になる。UTC 固定が必要**）
+- 残課題: M1-9（Redirect URLs の登録）、**M1-14（DB パスワードのローテーション）**
 
 ### M0 確認結果（2026-11-07）
 

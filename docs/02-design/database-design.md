@@ -316,29 +316,67 @@ pnpm prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script 
 
 ## 7. 接続
 
-**Supabase の Session pooler（ポート 5432）1 本だけ**を使う。
+Supabase のプーラーを **2 本使い分ける**（Prisma + Supabase の定番構成）。
 
-| | 理由 |
-| --- | --- |
-| Session pooler（5432） | IPv4 で繋がる。prepared statement とアドバイザリロックが使えるので `migrate` が素直に通る |
-| Transaction pooler（6543）を使わない | prepared statement の制約があり、Prisma との組み合わせで注意点が増える。利用者が数人なので接続効率は不要 |
-| 直接接続（`db.<ref>.supabase.co`）を使わない | 無料プランでは IPv6 のみ |
+| 用途 | 環境変数 | プーラー | ポート |
+| --- | --- | --- | --- |
+| アプリの通常のクエリ | `DATABASE_URL` | Transaction pooler（`pgbouncer=true`） | 6543 |
+| マイグレーション（CLI） | `DIRECT_URL` | Session pooler | 5432 |
 
-### 7.1 環境変数
+どちらもプーラー経由なので **IPv4 で繋がる**（無料プランの直接接続 `db.<ref>.supabase.co` は IPv6 のみ）。
 
-| 変数 | 用途 | 公開 |
-| --- | --- | --- |
-| `DATABASE_URL` | Prisma の接続先（Session pooler） | **非公開。DB の全権を持つ** |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Auth 用 | ブラウザに出る |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Auth 用 | ブラウザに出る |
+### 7.1 マイグレーションを Transaction pooler に向けてはいけない
 
-> **`DATABASE_URL` は Publishable key と同列に扱ってはいけない。** RLS を使わないため、この接続文字列はテーブルの全権（読み書き・削除・TRUNCATE）を持つ。`.env.local` 限定、コミット禁止。
+**`prisma migrate` を 6543 に向けると応答が返らずハングする**（2026-11-07 に実測。4 分待っても戻らなかった）。マイグレーションは DDL とアドバイザリロックを使うため、トランザクション単位で接続を切り替えるモードでは成立しない。
 
-### 7.2 接続プール
+そのため **`prisma.config.ts` の `datasource.url` には `DIRECT_URL` を入れる**。この設定ファイルは CLI 専用で、アプリの実行時には読まれない。
+
+```ts
+// prisma.config.ts — CLI 専用
+datasource: { url: env("DIRECT_URL") }   // Session pooler, 5432
+```
+
+```ts
+// src/lib/data/db.ts — アプリ実行時
+new PrismaPg({ connectionString: requiredEnv("DATABASE_URL") })   // 6543
+```
+
+### 7.2 アプリ側は Transaction pooler で問題なく動く
+
+Prisma 7 は driver adapter（`@prisma/adapter-pg` + `pg`）経由で接続する。`pgbouncer=true` は Prisma 自身のエンジン向けのフラグで、アダプタ経由では解釈されないが、**実測で以下はすべて動作した**（2026-11-07）。
+
+- 単純なクエリ（`count` / `findMany`）
+- `include` によるリレーションの取得
+- **`$transaction` によるインタラクティブトランザクション**（複数の `create` を 1 つのトランザクションで実行）
+- CHECK 制約による拒否
+
+`pg` は名前付き prepared statement を既定で使わないため、トランザクションモードのプーラーと衝突しない。
+
+### 7.3 接続プール
 
 `PrismaClient` は `src/lib/data/db.ts` でグローバルに 1 つだけ保つ（開発中の HMR で接続が増え続けないようにするため）。
 
----
+### 7.4 環境変数
+
+| 変数 | 用途 | 公開 |
+| --- | --- | --- |
+| `DATABASE_URL` | アプリのクエリ（6543） | **非公開。DB の全権を持つ** |
+| `DIRECT_URL` | マイグレーション（5432） | **非公開。DB の全権を持つ** |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Auth 用 | ブラウザに出る |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Auth 用 | ブラウザに出る |
+
+> **`DATABASE_URL` / `DIRECT_URL` は Publishable key と同列に扱ってはいけない。** RLS を使わないため、この接続文字列はテーブルの全権（読み書き・削除・TRUNCATE）を持つ。`.env.local` 限定、コミット禁止、`NEXT_PUBLIC_` を付けない。
+
+### 7.5 Prisma CLI はパスワードをプロセス引数に渡す
+
+`prisma migrate` 系のコマンドを実行すると、スキーマエンジンのプロセス引数に**接続文字列が平文で載る**。
+
+```
+$ ps -eo command | grep schema-engine
+schema-engine-darwin-arm64 --datasource {"url":"postgresql://postgres.xxx:<パスワード>@..."}
+```
+
+同じマシンの他のプロセスから `ps` で見える。1 人用の開発機では実害は小さいが、**画面共有・スクリーンショット・ログの貼り付けで漏れやすい**ことを意識する。Prisma の実装に由来するため、こちら側では回避できない。
 
 ## 8. 想定データ量
 

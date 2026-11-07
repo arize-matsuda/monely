@@ -334,19 +334,20 @@ Server Component のレンダリング中に `setAll` が呼ばれると書き�
 
 | 変数 | 用途 | 公開 |
 | --- | --- | --- |
-| `DATABASE_URL` | Prisma の接続先（Supabase の Session pooler, 5432） | **非公開。DB の全権を持つ** |
+| `DATABASE_URL` | アプリのクエリ（Transaction pooler, 6543） | **非公開。DB の全権を持つ** |
+| `DIRECT_URL` | マイグレーション（Session pooler, 5432） | **非公開。DB の全権を持つ** |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase Auth 用 | ブラウザに出る |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Auth 用（Publishable key、旧 anon キー） | ブラウザに出る |
 
 - **`.env.local` 1 つに統一する。** Next.js が読み、Prisma CLI も `prisma.config.ts` 経由で同じファイルを読む（Prisma 7 は `.env` を自動で読まない）。
 - `.env.local.example` を雛形として置く（`.gitignore` の `.env*` に一致するため `!.env.local.example` の除外行が必要）。
-- **`DATABASE_URL` に `NEXT_PUBLIC_` を付けない。** 付けるとブラウザのバンドルに埋め込まれ、DB の全権が公開される。
+- **`DATABASE_URL` / `DIRECT_URL` に `NEXT_PUBLIC_` を付けない。** 付けるとブラウザのバンドルに埋め込まれ、DB の全権が公開される。
 - Supabase の Secret key（旧 `service_role`）は使わない（NFR-S3）。
 - 環境は「ローカル」と「本番」のみ。Supabase のプロジェクトは 1 つを共用する（NFR-O3）。
 
 ### 8.1 接続方式
 
-Supabase の **Session pooler（ポート 5432）1 本**だけを使う。理由 → [DB設計 §7](./database-design.md#7-接続)
+アプリは Transaction pooler（6543）、マイグレーションは Session pooler（5432）。**マイグレーションを 6543 に向けるとハングする。** 理由と実測 → [DB設計 §7](./database-design.md#7-接続)
 
 ---
 

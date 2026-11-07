@@ -43,7 +43,7 @@ Next.js 16（App Router）+ Supabase（PostgreSQL + Auth）+ **Prisma 7** + Tail
    `update({ where: { id } })` を使わない → `updateMany({ where: { id, householdId } })` にして `count === 0` なら `NOT_FOUND`。
 3. **DAL の関数は世帯 ID を引数で受け取らない。** 関数の中で `requireMember()` から取る。`householdId` / `createdById` をクライアントから受け取らない。
 4. **DAL に関数を足したら認可テストを同じコミットで足す。** テストの無い DAL 関数を作らない。
-5. **`DATABASE_URL` は DB の全権を持つ。** `NEXT_PUBLIC_` を付けない。`src/lib/data/db.ts` 以外から参照しない。Secret key（旧 `service_role`）も使わない。
+5. **`DATABASE_URL` / `DIRECT_URL` は DB の全権を持つ。** `NEXT_PUBLIC_` を付けない。`src/lib/data/db.ts` 以外から参照しない。Secret key（旧 `service_role`）も使わない。
 6. **すべての Server Action の 1 行目で `requireMember()` を呼ぶ。** Server Action は UI を経由せず直接 POST できる。
 7. **`getSession()` を認可の判断に使わない。** `getUser()` を使う。
 8. **`categoryId` / `paidById` は参照先の所属を確認する。** 外部キーでは他世帯の ID を防げない。
@@ -80,6 +80,8 @@ pnpm db:status    # 適用状況を確認する
 ESLint も Prettier も入っていない。**Biome だけを使う。**
 
 スキーマの正は `prisma/schema.prisma`。**CHECK 制約は Prisma schema に書けない**ので、マイグレーションの SQL に手書きする。
+
+接続は 2 本。アプリは `DATABASE_URL`（Transaction pooler, 6543）、マイグレーションは `DIRECT_URL`（Session pooler, 5432）。**マイグレーションを 6543 に向けるとハングする。**
 
 ## 作業の進め方
 
