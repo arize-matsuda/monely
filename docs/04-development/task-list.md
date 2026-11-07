@@ -28,8 +28,8 @@
 
 | | |
 | --- | --- |
-| **進行中のマイルストーン** | **M2（実装は完了。マジックリンクの実地確認が残り）** |
-| **次にやること** | M2-15 確認リンクを開いて登録を完了 → `/setup` で世帯を作る（**手作業**） |
+| **進行中のマイルストーン** | **M2 完了（2026-11-08）。次は M3（記録と一覧 = v1 の本体）** |
+| **次にやること** | M3-0 Vitest とローカル DB の用意（ADR-0005 約束 C） |
 | **方針変更** | 2026-11-07 認可をアプリ層へ（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）/ 2026-11-08 認証をメール+パスワードへ（[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）/ 同日 認証基盤を better-auth へ（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)） |
 | **ブロッカー** | なし |
 
@@ -166,73 +166,20 @@ Supabase は DB の上に PostgREST（`/rest/v1/...`）を自動で立てる。�
 
 ## M2 — 認証と世帯
 
-実装は完了。**マジックリンクの実地確認（メール受信を伴う）が残り。**
+**完了（2026-11-08）**
 
-### 未着手
+### 未着手（M2 のスコープ外に送った）
 
-- [ ] M2-15 受入条件を確認（**手作業**）
-  - [ ] AC-1 `/signup` で登録 → **確認リンクはサーバーのコンソールに出る**（`RESEND_API_KEY` 未設定のため）→ リンクを開く → パスワードでログインできる
-  - [ ] AC-1b `/login/link` でログインリンクを受け取れる（コンソールに出る）
-  - [ ] AC-1b `/login/link` でログインリンクを受け取って入れる（パスワードを忘れたとき）
-  - [x] AC-2 `/setup` で世帯を作れて、初期カテゴリ 18 件が入る（2026-11-08、DB で確認）
-  - [ ] AC-3 2 つ目のアカウントが招待コードで同じ世帯に参加できる
-  - [ ] AC-11 世帯未所属で `/` を開くと `/setup` に飛ぶ
-  - [ ] ログイン失敗時に「メールアドレスまたはパスワードが正しくありません」が出る
-- [ ] M2-16 [認可の確認](../03-guidelines/testing-strategy.md#42-認可の確認毎回実施)（AC-9）。別世帯を作って実施
-- [ ] M2-17 `pnpm lint` / `pnpm build` を通してコミット（実装分はコミット済み）
+- [ ] AC-3 家族が招待コードで参加できる — **2 つ目のメールアドレスが必要**。家族を招待するタイミングで実施
+- [ ] AC-9 他世帯のデータが見えない — **M3 に送る**。現時点では取引が 0 件なので「漏れるデータ」が存在せず、確認が空振りになる。[ADR-0005 約束 C](../05-decisions/ADR-0005-authorization-in-app-layer.md) の DAL 認可テスト（M3-0, M3-3）が本来の受け皿
 
-### 完了
+### 完了した受入条件
 
-- [x] M2-1 `src/lib/supabase/env.ts`（環境変数の読み取り）（2026-11-08）
-- [x] M2-2 `src/lib/supabase/server.ts` / `client.ts`（**認証のみに使う**）（2026-11-08）
-- [x] M2-3 `src/proxy.ts`（セッション更新。`setAll` の第 2 引数のヘッダを設定、matcher で静的ファイルを除外）（2026-11-08）
-- [x] M2-4 `src/lib/types.ts`（`Me`, `Member`, `ActionResult`, `ok` / `fail` / `failUnexpected`）（2026-11-08）
-- [x] M2-5 `src/lib/auth.ts`（`getMe` / `requireUser` / `requireMember`）+ `src/lib/data/profile.ts`（初回ログイン時に `Profile` を作る）（2026-11-08）
-- [x] M2-6 `src/lib/validation.ts`（テキスト・メール・招待コード・金額。**全角数字の正規化を含む**）（2026-11-08）
-- [x] M2-7 `/login` 画面（**公開ページなので静的シェルを保つ**）（2026-11-08）
-- [x] M2-8 `sendMagicLink` アクション（登録有無を漏らさない）（2026-11-08）
-- [x] M2-20 **認証方式をメール + パスワードに変更**（[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）（2026-11-08）
-  - `signIn` / `signUp` アクション、`parsePassword` / `parsePasswordConfirmation`
-  - `/login` を差し替え、`/signup` と `/login/link` を追加
-  - `AuthShell` / `form-state.ts` を共通化
-  - マジックリンクは「パスワードを忘れたとき」の導線として残す（`shouldCreateUser: false`）
-- [x] M2-9 `/auth/callback` Route Handler（`exchangeCodeForSession` → 振り分け、失敗時は `/login?error=1`）（2026-11-08）
-- [x] M2-10 `/setup` 画面（世帯を作る / 招待コードで参加する）（2026-11-08）
-- [x] M2-11 `createHousehold` / `joinHousehold` アクション + DAL（`$transaction` で世帯作成 + 初期カテゴリ 18 件 + 所属更新）（2026-11-08）
-- [x] M2-12 `(app)/layout.tsx`（振り分け + `export const instant = false`）（2026-11-08）
-- [x] M2-13 `signOut` アクション（2026-11-08）
-- [x] M2-14 仮のホーム画面（世帯名・設定へのリンク）（2026-11-08）
-- [x] M2-21 `/settings`（招待コード・メンバー・**パスワードの変更**・ログアウト）（2026-11-08。M4 から前倒し）
-- [x] M2-22 `getMe()` に `connection()` を追加して `Date.now()` のプリレンダ警告を解消（2026-11-08）
-- [x] M2-23 メール送信のレート制限エラーを表示するようにした（2026-11-08）
-- [x] M2-24 `pnpm db:deploy` で `0003_better_auth` を適用（2026-11-08、開発者が実行）
-- [x] M2-25 better-auth の 4 テーブルを確認。user 1 件、account 1 件（パスワードあり）（2026-11-08）
-- [x] M2-27 **開発モードのメール出力を直した**（2026-11-08）
-- [x] M2-28 確認メールの再送手段を用意（`sendOnSignIn: true` と `/login/verify`）（2026-11-08）
-- [x] M2-26 **認証基盤を better-auth に移行**（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)）（2026-11-08）
-  - `src/lib/email.ts`（Resend / 開発時はコンソール）、`src/lib/auth/server.ts`
-  - `src/app/api/auth/[...all]/route.ts`、`src/lib/auth.ts` と `src/actions/auth.ts` を書き換え
-  - `prisma/schema.prisma` に `User` / `Session` / `Account` / `Verification`
-  - `prisma/migrations/0003_better_auth`（**未適用**。M2-24）
-  - 削除: `@supabase/*`、`src/lib/supabase/`、`src/proxy.ts`、`src/app/auth/callback/`
-- [x] M2-18 `src/app/page.tsx` を削除（`(app)/page.tsx` に置き換え）（2026-11-08）
-- [x] M2-19 UI の下地（`components/ui/button.tsx`, `field.tsx`）（2026-11-08）
-
-### M2 で方針変更したこと
-
-**認証をマジックリンクからメール + パスワードに変更した**（2026-11-08、[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）。
-
-開発者が実際にマジックリンクでログインしたうえでの判断。元の根拠「家族にパスワードを管理させたくない」（課題 B-2）は、開発者が家族の立場を推測して書いたもので実際の要望ではなかった。毎回メールを開く摩擦のほうが大きい。
-
-マジックリンクは**消さずに残した**ので、パスワード再設定専用の画面を作らずに済んだ（追加作業がほぼゼロ）。`/auth/callback` も新規登録の確認リンクと共用できた。
-
-| 画面 | 役割 |
+| 条件 | 結果 |
 | --- | --- |
-| `/login` | メールアドレス + パスワード（主） |
-| `/signup` | 新規登録（確認メール 1 通） |
-| `/login/link` | パスワードを忘れたとき（マジックリンク） |
-
-画面が 7 → 9 に増えた。「画面を増やさない」原則に対する意識的な例外として記録。
+| AC-1 新規登録 → 確認 → パスワードでログイン | **OK**（2026-11-08） |
+| AC-2 世帯を作れて初期カテゴリ 18 件が入る | **OK**（支出 13 / 収入 5） |
+| AC-11 未ログインのガード | **OK**（`/` と `/setup` が 307 で `/login` へ） |
 
 ### M2 で認証基盤を差し替えた（2 回目の方針変更）
 
@@ -446,15 +393,27 @@ v1 を 1 か月使ってから判断する。候補は [プロダクト要件 §
   - `occurredOn` は `2026-11-07T00:00:00.000Z`。JST では UTC 整形とローカル整形がどちらも「11月7日」になる（**負のオフセット環境なら前日になる。UTC 固定が必要**）
 - 残課題: なし
 
-### M2 確認結果（2026-11-08、実装分のみ）
+### M2 確認結果（2026-11-08、完了）
 
-- `pnpm lint`: OK / `pnpm build`: OK
-- ルートの種別: `/` と `/setup` と `/auth/callback` が Dynamic、`/login` が **Partial Prerender**、Proxy が登録済み
-- 未ログインでのガード: `/` → 307 `/login`、`/setup` → 307 `/login`
-- `/auth/callback`（code 無し）→ 307 `/login?error=1`
-- `/login` の表示: title・ラベル・送信ボタン・説明文すべて出力。`?error=1` のときだけエラー通知が出る
-- 未ログインでプロフィールが作られないことを確認（DB は空）
-- **未確認**: 新規登録とパスワードログインの実地確認（メール受信が必要）、AC-9
+better-auth への移行後、実際に通した結果。
+
+```
+better-auth のテーブル : 4つ揃っている
+user        : 1件（確認済み = true）
+account     : 1件（providerId=credential、パスワードあり）
+session     : 2件
+verification: 0件（消費済み）
+households  : 1件（わが家）
+profiles    : 1件（松田竜英、世帯あり）
+categories  : 18件（支出 13 / 収入 5）
+```
+
+- `pnpm lint` / `pnpm build`: OK
+- ルートの種別: `/` `/setup` `/settings` `/api/auth/[...all]` が Dynamic、`/login` が Partial Prerender、`/signup` `/login/link` `/login/verify` が Static
+- 未ログインのガード: `/` → 307 `/login`、`/setup` → 307 `/login`
+- **`profiles → user` の外部キーが張れた**（ADR-0007 の狙いどおり。Supabase Auth のときは `auth` スキーマが Prisma 管理外で張れなかった）
+- **`anon` / `authenticated` の `public` 権限が 0 件**（PostgREST は塞がったまま）
+- 残り: AC-3（2 つ目のメールアドレスが必要）、AC-9（M3 へ）
 
 ### M1 追加確認（2026-11-08）
 
