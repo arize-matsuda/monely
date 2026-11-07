@@ -29,8 +29,8 @@
 | | |
 | --- | --- |
 | **進行中のマイルストーン** | **M2（実装は完了。マジックリンクの実地確認が残り）** |
-| **次にやること** | M2-15 `/settings` でパスワードを設定 → パスワードでログインを確認（**手作業**）→ M2-16 AC-9 |
-| **方針変更** | 2026-11-07 に認可を RLS からアプリ層に移した → [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) |
+| **次にやること** | **M2-24 `pnpm db:deploy` を実行（手作業。破壊的マイグレーション）** → M2-15 新規登録とログインの確認 |
+| **方針変更** | 2026-11-07 認可をアプリ層へ（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）/ 2026-11-08 認証をメール+パスワードへ（[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）/ 同日 認証基盤を better-auth へ（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)） |
 | **ブロッカー** | なし |
 
 ---
@@ -160,6 +160,7 @@ Supabase は DB の上に PostgREST（`/rest/v1/...`）を自動で立てる。�
 | --- | --- |
 | `0001_init` | 適用済み（2026-11-07） |
 | `0002_revoke_postgrest_access` | 適用済み（2026-11-08） |
+| `0003_better_auth` | **未適用**（M2-24 で開発者が `pnpm db:deploy`） |
 
 **適用済みのマイグレーション SQL は編集しない。** Prisma がチェックサムを検証するため、編集すると `migrate deploy` が失敗する。
 
@@ -169,9 +170,13 @@ Supabase は DB の上に PostgREST（`/rest/v1/...`）を自動で立てる。�
 
 ### 未着手
 
+- [ ] **M2-24 `pnpm db:deploy` を実行する（手作業）**
+      `0003_better_auth` は**アプリのデータを削除する**（取引 0 件を確認済み）。
+      自動モードのガードに止められたため、開発者が実行する。
+- [ ] M2-25 better-auth のテーブルが作られたことを確認（`user` / `session` / `account` / `verification`）
 - [ ] M2-15 受入条件を確認（**手作業**）
-  - [ ] AC-1 **既存アカウント**: `/login/link` でログイン → `/settings` でパスワードを設定 → ログアウト → `/login` でパスワードでログインできる
-  - [ ] AC-1 **新規アカウント**（別アドレスが必要）: `/signup` → 確認メール → パスワードでログイン
+  - [ ] AC-1 `/signup` で登録 → **確認リンクはサーバーのコンソールに出る**（`RESEND_API_KEY` 未設定のため）→ リンクを開く → パスワードでログインできる
+  - [ ] AC-1b `/login/link` でログインリンクを受け取れる（コンソールに出る）
   - [ ] AC-1b `/login/link` でログインリンクを受け取って入れる（パスワードを忘れたとき）
   - [x] AC-2 `/setup` で世帯を作れて、初期カテゴリ 18 件が入る（2026-11-08、DB で確認）
   - [ ] AC-3 2 つ目のアカウントが招待コードで同じ世帯に参加できる
@@ -204,6 +209,12 @@ Supabase は DB の上に PostgREST（`/rest/v1/...`）を自動で立てる。�
 - [x] M2-21 `/settings`（招待コード・メンバー・**パスワードの変更**・ログアウト）（2026-11-08。M4 から前倒し）
 - [x] M2-22 `getMe()` に `connection()` を追加して `Date.now()` のプリレンダ警告を解消（2026-11-08）
 - [x] M2-23 メール送信のレート制限エラーを表示するようにした（2026-11-08）
+- [x] M2-26 **認証基盤を better-auth に移行**（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)）（2026-11-08）
+  - `src/lib/email.ts`（Resend / 開発時はコンソール）、`src/lib/auth/server.ts`
+  - `src/app/api/auth/[...all]/route.ts`、`src/lib/auth.ts` と `src/actions/auth.ts` を書き換え
+  - `prisma/schema.prisma` に `User` / `Session` / `Account` / `Verification`
+  - `prisma/migrations/0003_better_auth`（**未適用**。M2-24）
+  - 削除: `@supabase/*`、`src/lib/supabase/`、`src/proxy.ts`、`src/app/auth/callback/`
 - [x] M2-18 `src/app/page.tsx` を削除（`(app)/page.tsx` に置き換え）（2026-11-08）
 - [x] M2-19 UI の下地（`components/ui/button.tsx`, `field.tsx`）（2026-11-08）
 
@@ -222,6 +233,42 @@ Supabase は DB の上に PostgREST（`/rest/v1/...`）を自動で立てる。�
 | `/login/link` | パスワードを忘れたとき（マジックリンク） |
 
 画面が 7 → 9 に増えた。「画面を増やさない」原則に対する意識的な例外として記録。
+
+### M2 で認証基盤を差し替えた（2 回目の方針変更）
+
+開発者から「認証を自前でやりたい、Auth.js で」という要望。調査の結果**Auth.js は噛み合わない**と分かり、事実を提示したうえで **better-auth** を採用した（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)）。
+
+| ライブラリ | 週間DL | 状態 |
+| --- | --- | --- |
+| **better-auth** | 18,714,403 | 1.7.18 安定。Prisma 7 を名指しサポート |
+| next-auth / Auth.js | 9,403,576 | **v5 が 2023-10 から 3 年以上 beta。** メール+パスワードを公式非推奨 |
+| lucia | 694,830 | **非推奨** |
+
+**認証方式の決定（ADR-0006）は変えていない。** 実装基盤だけ差し替えた。画面（`/login`, `/signup`, `/login/link`, `/settings`）はそのまま使えた。
+
+変わったもの:
+
+| | 変更前 | 変更後 |
+| --- | --- | --- |
+| 認証 | Supabase Auth | better-auth 1.7.18 |
+| ユーザーの保存先 | `auth.users`（Prisma 管理外） | `user` / `session` / `account` / `verification`（Prisma 管理） |
+| セッション | JWT + 毎リクエストの HTTP 往復 | DB セッション（同じ DB の 1 クエリ） |
+| メール送信 | Supabase の組み込み SMTP | 自前（`src/lib/email.ts`） |
+| `Profile.userId` | `uuid`、外部キーなし | `text`、**`user` への外部キーあり** |
+| 削除したもの | — | `@supabase/*` 2 つ、`src/lib/supabase/`、`src/proxy.ts`、`/auth/callback` |
+
+**開発時はメールのリンクがコンソールに出る。** 今日は送信制限で何度も止まったので、これが一番効く変更。
+
+#### 作業で分かったこと
+
+| 事項 | 内容 |
+| --- | --- |
+| `@better-auth/cli` は本体より古い | CLI 1.4.21 / 本体 1.7.18。**CLI を使わず `getAuthTables()` でインストール済みバージョンのスキーマ定義を直接取り出した** |
+| Prisma 7 の `migrate diff` のフラグ | `--from-url` は無い。`--from-config-datasource`（設定の接続先＝本番）を使う |
+| `--from-migrations` にはシャドー DB が必要 | 本番との差分を取る `--from-config-datasource` に切り替えて回避 |
+| `migration_lock.toml` が必要 | 手でマイグレーションを作ったので無かった。`provider = "postgresql"` を書いて作成 |
+| `nextCookies()` はプラグインの最後 | better-auth の作法。並び順が意味を持つ |
+| **破壊的マイグレーションは自動モードが止める** | `DELETE FROM` を含むため適用がブロックされた。**妥当な挙動**なので開発者が実行する |
 
 ### M2 で見つけて直した不具合
 

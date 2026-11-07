@@ -4,8 +4,9 @@
 // 認可はこのスキーマでは表現しない。すべて src/lib/data/ の Data Access Layer で
 // 世帯 ID で絞る（docs/05-decisions/ADR-0005-authorization-in-app-layer.md）。
 //
-// auth スキーマ（Supabase Auth が所有）は Prisma では管理しない。
-// Profile.userId が Supabase のユーザー ID を持つが、外部キーは張らない。
+// 認証も Prisma で管理する（better-auth）。user / session / account / verification は
+// better-auth が使うテーブルで、形は getAuthTables() が返す定義に一致させている。
+// → docs/05-decisions/ADR-0007-better-auth.md
 
 generator client {
   provider = "prisma-client"
@@ -42,8 +43,9 @@ model Household {
 /// 世帯のメンバー。Supabase Auth のユーザーと 1:1
 model Profile {
   id String @id @default(uuid(7)) @db.Uuid
-  /// Supabase Auth のユーザー ID。auth.users は Prisma の管理外なので外部キーは張らない
-  userId      String   @unique @map("user_id") @db.Uuid
+  /// better-auth の User.id。同じ Prisma 管理下なので外部キーを張れる
+  userId      String   @unique @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   displayName String   @map("display_name") @db.VarChar(20)
   /// null = まだ世帯に未所属（セットアップ前）。これは正式な状態
   householdId String?  @map("household_id") @db.Uuid
@@ -103,4 +105,81 @@ model Transaction {
 
   @@index([householdId, occurredOn(sort: Desc), createdAt(sort: Desc)])
   @@map("transactions")
+}
+
+// -----------------------------------------------------------------------------
+// better-auth が使うテーブル。
+//
+// 形は `getAuthTables()`（better-auth 1.7.18）が返す定義にそのまま合わせている。
+// **better-auth を上げるときは getAuthTables() の出力と突き合わせること。**
+//   node -e 'import("better-auth/db").then(m => console.log(m.getAuthTables(options)))'
+//
+// テーブル名は better-auth の既定（単数形）に @@map で合わせる。
+// 他のモデルは snake_case の複数形だが、ここは既定に従うほうが追従しやすい。
+// -----------------------------------------------------------------------------
+
+model User {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+  /// Monely 側のドメインモデル（表示名・所属世帯）
+  profile Profile?
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+/// 認証手段。メール + パスワードの場合 providerId = "credential" で password にハッシュが入る
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+/// メール確認・パスワード再設定・マジックリンクのトークン
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }

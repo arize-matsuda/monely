@@ -13,7 +13,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 # Monely
 
 スマホで数秒で記録できて、家族と同じ家計簿を見られる、自作の家計管理アプリ。
-Next.js 16（App Router）+ Supabase（PostgreSQL + Auth）+ **Prisma 7** + Tailwind CSS v4 + Biome / pnpm。
+Next.js 16（App Router）+ Supabase（**PostgreSQL のみ**）+ **Prisma 7** + **better-auth** + Tailwind CSS v4 + Biome / pnpm。
 
 > **2026-11-07 に認可の方針を変更した。** DB の RLS をやめ、アプリ層（`src/lib/data/`）に移した。古い記述を見かけたら `docs/05-decisions/ADR-0005-authorization-in-app-layer.md` が正。
 
@@ -57,10 +57,12 @@ RLS は**使わない**。Supabase の「RLS が無効です」警告は意図�
 
 **学習データと差がある。** 一次情報は `node_modules/next/dist/docs/01-app/`。実装前に該当するガイドを読む。
 
-- **Middleware は `proxy.ts` に改名**（`src/proxy.ts`）。トークン更新のみ。認可判断を置かない。
+- **Middleware は `proxy.ts` に改名**。ただし**このプロジェクトには無い**（better-auth に移行して不要になった）。作る場合は matcher を忘れない。
 - **`cacheComponents: true` が有効。** `cookies()` を読む箇所に制約がある。認証後のセグメントは `export const instant = false`（`docs/05-decisions/ADR-0004-instant-false-for-authed-segments.md`）。
 - キャッシュキーとタグは**平文で保存される**。個人情報を入れない。
-- `@supabase/ssr@0.12.7` の `setAll(cookiesToSet, headers)` は**第 2 引数のヘッダもレスポンスに設定する**（忘れると他人のセッションがキャッシュから配信されうる）。
+- **認証は better-auth**（`src/lib/auth/server.ts`）。Supabase Auth と `@supabase/*` は使わない（削除済み）。
+- **メールは自前で送る**（`src/lib/email.ts`）。`RESEND_API_KEY` 未設定なら**コンソールにリンクを出す**（開発時はこれで完結する）。
+- `prisma/schema.prisma` の `User` / `Session` / `Account` / `Verification` は better-auth が要求する形。**better-auth を上げたら `getAuthTables()` の出力と突き合わせる。**
 
 ## コマンド
 

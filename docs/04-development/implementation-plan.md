@@ -108,9 +108,9 @@ flowchart LR
 
 | # | 内容 | 対象ファイル |
 | --- | --- | --- |
-| 1 | 環境変数の読み取りヘルパー | `src/lib/supabase/env.ts` |
-| 2 | Supabase クライアント（**認証のみ**。サーバー用 / ブラウザ用） | `src/lib/supabase/server.ts`, `client.ts` |
-| 3 | `proxy.ts` でセッション更新（**`setAll` の第 2 引数のヘッダを忘れない**） | `src/proxy.ts` |
+| 1 | メール送信（Resend / 開発時はコンソール） | `src/lib/email.ts` |
+| 2 | better-auth の設定（メール + パスワード、確認メール、マジックリンク） | `src/lib/auth/server.ts` |
+| 3 | better-auth のエンドポイント | `src/app/api/auth/[...all]/route.ts` |
 | 4 | 認証ヘルパー（`getMe` / `requireUser` / `requireMember`）。**初回ログイン時に `Profile` を作る** | `src/lib/auth.ts`, `src/lib/data/profile.ts` |
 | 5 | 型定義（`Me`（`userId` と `profileId` を持つ）, `Member`, `ActionResult`） | `src/lib/types.ts` |
 | 6 | 検証ヘルパーの土台 | `src/lib/validation.ts` |
@@ -281,7 +281,7 @@ M3 が終わり、以下がすべて「はい」になった状態。
 | --- | --- | --- |
 | M0 | 1〜2 時間 | 小 |
 | M1 | 2〜4 時間 | Prisma のセットアップと接続（Supabase のプーラー設定） |
-| M2 | 4〜8 時間 | **大。** マジックリンクのリダイレクト設定、Next.js 16 の `proxy.ts` と `cacheComponents` の組み合わせ |
+| M2 | 4〜8 時間 | **大。** 認証基盤の選定と移行（Supabase Auth → better-auth）、メール送信の用意 |
 | M3 | 12〜16 時間 | 中。画面と入力フォームの量 + **Vitest の環境構築と認可テスト** |
 | M4 | 4〜8 時間 | 中。実機での調整 |
 | M5 | 2〜4 時間 | アイコンの作成とデプロイ |

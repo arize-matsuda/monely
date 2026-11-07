@@ -387,8 +387,9 @@ Prisma 7 は driver adapter（`@prisma/adapter-pg` + `pg`）経由で接続す�
 | --- | --- | --- |
 | `DATABASE_URL` | アプリのクエリ（6543） | **非公開。DB の全権を持つ** |
 | `DIRECT_URL` | マイグレーション（5432） | **非公開。DB の全権を持つ** |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Auth 用 | ブラウザに出る |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Auth 用 | ブラウザに出る |
+| `BETTER_AUTH_SECRET` | セッションの署名鍵 | **非公開** |
+| `BETTER_AUTH_URL` | アプリの URL | 公開してよい |
+| `RESEND_API_KEY` / `MAIL_FROM` | メール送信 | 非公開 / 公開してよい |
 
 > **`DATABASE_URL` / `DIRECT_URL` は Publishable key と同列に扱ってはいけない。** RLS を使わないため、この接続文字列はテーブルの全権（読み書き・削除・TRUNCATE）を持つ。`.env.local` 限定、コミット禁止、`NEXT_PUBLIC_` を付けない。
 

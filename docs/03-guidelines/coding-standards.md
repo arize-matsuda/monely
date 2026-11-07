@@ -105,7 +105,7 @@ import 元が曖昧になり、循環の原因にもなる。`import { Button } 
 ### 4.1 環境変数
 
 ```ts
-// src/lib/supabase/env.ts
+// src/lib/auth/server.ts などで使う形
 function required(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`環境変数 ${name} が設定されていません。.env.local を確認してください`);
@@ -261,9 +261,11 @@ try { ... } catch { }
 | 入れない | 数十行の自作で足りる。UI ライブラリで見た目を揃えたいだけ |
 | 必須 | 追加する場合は [ADR](../05-decisions/) を 1 本書く |
 
-現在の依存: `next`, `react`, `react-dom`, `@supabase/supabase-js`, `@supabase/ssr`, `@prisma/client`, `@prisma/adapter-pg`, `pg`（+ dev の Biome / Tailwind / TypeScript / `prisma` / `dotenv` / Vitest）。
+現在の依存: `next`, `react`, `react-dom`, `better-auth`, `@prisma/client`, `@prisma/adapter-pg`, `pg`（+ dev の Biome / Tailwind / TypeScript / `prisma` / `dotenv` / `@types/pg` / Vitest）。
 
-Prisma の追加理由 → [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)
+**メール送信にパッケージを追加していない**（Resend の REST API を `fetch` で叩く）。
+
+追加理由 → Prisma: [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) / better-auth: [ADR-0007](../05-decisions/ADR-0007-better-auth.md)
 
 ---
 

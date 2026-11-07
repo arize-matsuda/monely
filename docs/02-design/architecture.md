@@ -15,36 +15,37 @@ flowchart TB
     end
 
     subgraph NextApp["Next.js 16 アプリ"]
-        Proxy["proxy.ts<br/>セッション更新のみ"]
+        BA["better-auth<br/>/api/auth/*"]
         SC["Server Components<br/>データの読み取り"]
         SA["Server Actions<br/>データの変更"]
-        RH["Route Handler<br/>/auth/callback"]
+
         CC["Client Components<br/>入力・操作"]
     end
 
     subgraph Supabase["Supabase (クラウド)"]
-        Auth["Supabase Auth<br/>マジックリンク"]
         PG[("PostgreSQL<br/>制約のみ・認可なし")]
     end
     DAL["src/lib/data/<br/>Prisma + 認可"]
+    Mail["src/lib/email.ts<br/>Resend / コンソール"]
 
-    Browser --> Proxy
-    Proxy --> SC
+    Browser --> SC
     SC --> CC
     CC -- "フォーム送信" --> SA
-    Browser -- "メールのリンク" --> RH
-    RH --> Auth
+    Browser -- "メールのリンク" --> BA
+    SA --> BA
+    BA -- "session / user / account" --> PG
+    BA --> Mail
     SC --> DAL
     SA --> DAL
-    DAL -- "Prisma（Session pooler 5432）" --> PG
-    Proxy -- "トークン更新" --> Auth
+    DAL -- "Prisma（Transaction pooler 6543）" --> PG
 ```
 
 ### 1.1 構成の要点
 
 - **バックエンドを別に作らない。** DB へのアクセスは Next.js のサーバー側から Prisma 経由で行う。REST API 層は作らない（→ [ADR-0001](../05-decisions/ADR-0001-tech-stack.md)）。
 - **認可はアプリ層（`src/lib/data/`）に置く。** DB は制約でデータの正しさを守るが、誰が見られるかは守らない（→ [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）。**最終防衛線が無いので、DAL が唯一の砦。**
-- **Supabase は DB と認証のホスト。** データアクセスに supabase-js は使わない（認証のみ）。ブラウザから DB を直接叩かない。
+- **Supabase は DB のホストだけ。** 認証は better-auth が同じ Postgres の `user` / `session` / `account` / `verification` テーブルで行う（→ [ADR-0007](../05-decisions/ADR-0007-better-auth.md)）。ブラウザから DB を直接叩かない。
+- **メール送信は自前**（`src/lib/email.ts`）。better-auth はメールを送らないため。開発時は**コンソールにリンクを出す**。
 
 ---
 
@@ -60,16 +61,14 @@ monely/
 ├── prisma.config.ts            Prisma CLI の設定（.env.local を読む）
 ├── public/                     静的ファイル（PWA アイコンなど）
 └── src/
-    ├── proxy.ts                Next.js 16 の Proxy（旧 Middleware）
     ├── app/
     │   ├── layout.tsx          ルートレイアウト（html/body, メタデータ）
     │   ├── globals.css         Tailwind の読み込みと色トークン
     │   ├── manifest.ts         PWA マニフェスト（M5）
     │   ├── login/              /login
     │   ├── setup/              /setup
-    │   ├── auth/
-    │   │   └── callback/
-    │   │       └── route.ts    認証コールバック
+    │   ├── api/auth/[...all]/
+    │   │   └── route.ts        better-auth のエンドポイント（唯一の API 経路）
     │   └── (app)/              ← 認証 + 世帯所属が必要な画面
     │       ├── layout.tsx      振り分けと下部タブ
     │       ├── page.tsx        / 月次一覧
@@ -86,9 +85,9 @@ monely/
     │   └── …                   ドメイン固有（TransactionRow, AmountInput …）
     ├── generated/prisma/       Prisma Client（生成物。gitignore 済み）
     └── lib/
-        ├── supabase/           ★ 認証のみ。データアクセスには使わない
-        │   ├── client.ts       ブラウザ用クライアント
-        │   └── server.ts       サーバー用クライアント
+        ├── auth/
+        │   └── server.ts       ★ better-auth の設定（認証の中心）
+        ├── email.ts            メール送信（Resend / 開発時はコンソール）
         ├── data/               ★ DB に触る唯一の場所。認可もここ
         │   ├── db.ts           Prisma Client の生成口（外から import 禁止）
         │   ├── transactions.ts
@@ -166,16 +165,13 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant B as ブラウザ
-    participant P as proxy.ts
     participant L as (app)/layout.tsx
     participant Pg as (app)/page.tsx
     participant D as lib/data/transactions.ts
     participant S as PostgreSQL
 
-    B->>P: GET /?m=2026-11
-    P->>S: セッションの検証・更新
-    S-->>P: 新しいトークン（必要時）
-    P->>L: Cookie を更新してリクエストを通す
+    B->>L: GET /?m=2026-11
+    L->>S: セッションを引く（session テーブル）
     L->>L: ユーザーと世帯を取得<br/>未ログイン→/login, 世帯なし→/setup
     L->>Pg: 通過
     Pg->>D: listTransactionsByMonth("2026-11")
@@ -240,8 +236,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Req["リクエスト"] --> Px["proxy.ts<br/>トークンの更新のみ"]
-    Px --> Layout["(app)/layout.tsx<br/>① ログイン済みか<br/>② 世帯に所属しているか"]
+    Req["リクエスト"] --> Layout["(app)/layout.tsx<br/>① ログイン済みか<br/>② 世帯に所属しているか"]
     Layout -- "NG" --> Redirect["/login または /setup"]
     Layout -- "OK" --> Page["画面"]
     Page --> Action["Server Action<br/>③ 認証と世帯を再取得"]
@@ -250,12 +245,11 @@ flowchart TD
 
 | 段 | 何をするか | 信頼度 |
 | --- | --- | --- |
-| ① `proxy.ts` | トークンの更新。**認可の判断はしない** | 低（ここに頼らない） |
-| ② `(app)/layout.tsx` | 画面の振り分け（UX のため） | 中（迂回されうる） |
-| ③ Server Action / Route Handler | 認証と世帯の再確認、入力検証 | 高 |
-| ④ RLS | 行レベルの可否 | **最終防衛線** |
+| ① `(app)/layout.tsx` | 画面の振り分け（UX のため） | 中（迂回されうる） |
+| ② Server Action | 認証と世帯の再確認、入力検証 | 高 |
 
-**②だけで守った気にならない。** 画面を隠すことはデータを守ることではない。詳細 → [セキュリティガイドライン](../03-guidelines/security-guidelines.md)
+
+**①だけで守った気にならない。** 画面を隠すことはデータを守ることではない。詳細 → [セキュリティガイドライン](../03-guidelines/security-guidelines.md)
 
 ---
 
@@ -263,13 +257,13 @@ flowchart TD
 
 このリポジトリの Next.js は 16.4.5 で、一般的な記事やモデルの学習データと差がある。**同梱ドキュメント `node_modules/next/dist/docs/` が一次情報**（`AGENTS.md` にも明記されている）。
 
-### 6.1 Middleware は `proxy.ts` に改名された
+### 6.1 Middleware は `proxy.ts` に改名された（このプロジェクトでは未使用）
 
 > Starting with Next.js 16, Middleware is now called Proxy.
 
-- 置き場所は `src/proxy.ts`（`src/app` と同階層）。プロジェクトに 1 つだけ。
-- `proxy` という名前付き export、または default export。
-- **ここで重いデータ取得や認可判断をしない**（ドキュメントが明記）。Supabase のトークン更新だけに留める。
+Supabase Auth のときはトークン更新のために `src/proxy.ts` を置いていたが、**better-auth に移行して不要になった**（セッションは DB にあり、リクエストごとの更新処理が要らない）。そのため現在このプロジェクトに `proxy.ts` は無い。
+
+将来必要になった場合は `src/proxy.ts`（`src/app` と同階層、プロジェクトに 1 つだけ、`proxy` という名前付き export または default export）。**matcher を書かないと静的ファイルにも走る。**
 
 ### 6.2 `cacheComponents: true` が有効
 
@@ -296,39 +290,32 @@ flowchart TD
 
 ---
 
-## 7. Supabase クライアントの使い分け（**認証のみ**）
+## 7. 認証の実装（better-auth）
 
-> データアクセスには使わない。DB は Prisma 経由（`src/lib/data/`）。ここで作るクライアントは `auth.*` のためだけに使う。
+| 事項 | 内容 |
+| --- | --- |
+| 設定 | `src/lib/auth/server.ts`。`betterAuth({ ... })` を 1 つ export する |
+| DB | `prismaAdapter(prisma, { provider: "postgresql" })`。`src/lib/data/db.ts` の Prisma Client を共有する |
+| エンドポイント | `src/app/api/auth/[...all]/route.ts`（`toNextJsHandler`）。メール確認・再設定・マジックリンクのリンクはここに来る |
+| Server Action から | `auth.api.signInEmail({ body, headers })` のように呼ぶ。Cookie は `nextCookies()` プラグインが書く |
+| セッションの取得 | `auth.api.getSession({ headers })`。`src/lib/auth.ts` の `getMe()` が包む |
+| メール送信 | `src/lib/email.ts`。better-auth はメールを送らないので自分で渡す |
 
-| 用途 | 生成関数 | 場所 | 注意 |
-| --- | --- | --- | --- |
-| Server Component / Server Action / Route Handler | `createServerClient` | `src/lib/supabase/server.ts` | **リクエストごとに新しく作る。** モジュールスコープで使い回さない |
-| ブラウザ（Client Component） | `createBrowserClient` | `src/lib/supabase/client.ts` | v1 ではほぼ使わない |
-| セッション更新 | `createServerClient` | `src/proxy.ts` 内で直接生成 | レスポンスに Cookie とヘッダを書き戻す |
+### 7.1 `nextCookies()` はプラグインの最後に置く
 
-### 7.1 Cookie メソッドは `getAll` / `setAll` を両方実装する
+better-auth の作法。Server Action から呼んだときに Cookie を書けるようにするプラグインで、**並び順が意味を持つ**。
 
-`get` / `set` / `remove` は非推奨。両方実装しないと「ランダムにログアウトされる」「JSON パースエラー」といった追いにくい不具合が出る、とライブラリ自身が警告している。
+### 7.2 スキーマは `getAuthTables()` と突き合わせる
 
-### 7.2 `setAll` の第 2 引数（`@supabase/ssr@0.12.7` 固有）
+`prisma/schema.prisma` の `User` / `Session` / `Account` / `Verification` は better-auth が要求する形に手で合わせている。**better-auth を上げるときは必ず確認する。**
 
-```ts
-setAll(cookiesToSet, headers) {
-  for (const { name, value, options } of cookiesToSet) {
-    response.cookies.set(name, value, options);
-  }
-  // ← 忘れない
-  for (const [key, value] of Object.entries(headers)) {
-    response.headers.set(key, value);
-  }
-}
+```bash
+node -e 'import("better-auth/db").then(m => console.log(m.getAuthTables(options)))'
 ```
 
-第 2 引数には `Cache-Control: private, no-cache, no-store, ...` などが入ってくる。**設定を忘れると、認証 Cookie を含むレスポンスが CDN やプロキシにキャッシュされ、他人のセッションが配信されうる**（NFR-S5）。
+### 7.3 Supabase Auth は使わない
 
-Server Component のレンダリング中に `setAll` が呼ばれると書き込みに失敗することがある。`try` / `catch` で握りつぶしてよい — セッションの更新は `proxy.ts` が担保する。
-
----
+`@supabase/supabase-js` と `@supabase/ssr` は削除した。Supabase は Postgres のホストとしてのみ使う。`auth` スキーマ（Supabase が所有）は参照しない。
 
 ## 8. 環境と設定
 
@@ -336,13 +323,16 @@ Server Component のレンダリング中に `setAll` が呼ばれると書き�
 | --- | --- | --- |
 | `DATABASE_URL` | アプリのクエリ（Transaction pooler, 6543） | **非公開。DB の全権を持つ** |
 | `DIRECT_URL` | マイグレーション（Session pooler, 5432） | **非公開。DB の全権を持つ** |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Auth 用 | ブラウザに出る |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Auth 用（Publishable key、旧 anon キー） | ブラウザに出る |
+| `BETTER_AUTH_SECRET` | セッションの署名鍵 | **非公開。漏れるとセッションを偽造できる** |
+| `BETTER_AUTH_URL` | アプリの URL（リンクの組み立てに使う） | 公開してよい |
+| `RESEND_API_KEY` | メール送信。**未設定なら開発モード（コンソール出力）** | 非公開 |
+| `MAIL_FROM` | 送信元アドレス | 公開してよい |
+
+**ブラウザに出る変数は現在 1 つも無い**（`NEXT_PUBLIC_` 付きの変数が存在しない）。
 
 - **`.env.local` 1 つに統一する。** Next.js が読み、Prisma CLI も `prisma.config.ts` 経由で同じファイルを読む（Prisma 7 は `.env` を自動で読まない）。
 - `.env.local.example` を雛形として置く（`.gitignore` の `.env*` に一致するため `!.env.local.example` の除外行が必要）。
-- **`DATABASE_URL` / `DIRECT_URL` に `NEXT_PUBLIC_` を付けない。** 付けるとブラウザのバンドルに埋め込まれ、DB の全権が公開される。
-- Supabase の Secret key（旧 `service_role`）は使わない（NFR-S3）。
+- **`DATABASE_URL` / `DIRECT_URL` / `BETTER_AUTH_SECRET` に `NEXT_PUBLIC_` を付けない。** 付けるとブラウザのバンドルに埋め込まれる。
 - 環境は「ローカル」と「本番」のみ。Supabase のプロジェクトは 1 つを共用する（NFR-O3）。
 
 ### 8.1 接続方式
@@ -356,7 +346,8 @@ Server Component のレンダリング中に `setAll` が呼ばれると書き�
 | 選ばなかったもの | 理由 |
 | --- | --- |
 | REST / GraphQL の API 層 | 利用者が Next.js アプリだけ。層を増やすと型とエラー処理の重複が生まれる → [ADR-0001](../05-decisions/ADR-0001-tech-stack.md) |
-| supabase-js でのデータアクセス | Prisma の型安全なクエリを使う（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）。supabase-js は認証のみ |
+| Supabase Auth | better-auth に移行（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)）。`@supabase/*` は依存から削除した |
+| Auth.js | v5 が 3 年以上 beta。メール + パスワードを公式に非推奨 → [ADR-0007](../05-decisions/ADR-0007-better-auth.md) |
 | RLS（DB 側の認可） | [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) で廃止。Prisma は所有者ロールで接続するためポリシーが効かない |
 | 状態管理ライブラリ | サーバーから渡す props と `useState` で足りる |
 | クライアントからの Supabase 直接アクセス | 認可の判断箇所を増やしたくない |

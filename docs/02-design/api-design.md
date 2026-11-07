@@ -105,10 +105,10 @@ export type ActionError = {
 
 | 事項 | 内容 |
 | --- | --- |
-| 方式 | メールアドレス + パスワード（Supabase Auth）。パスワードを忘れたときはマジックリンク |
-| セッションの保持 | Cookie（`@supabase/ssr` が管理） |
-| トークンの更新 | `src/proxy.ts` で毎リクエスト時に実施 |
-| 認証の確認 | `supabase.auth.getUser()`（サーバー側で検証される） |
+| 方式 | メールアドレス + パスワード（**better-auth** → [ADR-0007](../05-decisions/ADR-0007-better-auth.md)）。パスワードを忘れたときはマジックリンク |
+| セッションの保持 | `session` テーブル + Cookie（better-auth が管理） |
+| セッションの検証 | `auth.api.getSession({ headers })`。同じ DB への 1 クエリ |
+
 
 ### 3.1 ヘルパー関数
 

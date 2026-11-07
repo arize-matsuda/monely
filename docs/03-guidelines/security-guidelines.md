@@ -21,6 +21,7 @@
 | セッション（認証 Cookie） | アカウントの乗っ取り |
 | 招待コード | 見知らぬ人が世帯に入り、全記録を読み書きできる |
 | **`DATABASE_URL` / `DIRECT_URL`** | **DB の全権。全世帯のデータの読み書き・削除** |
+| **`BETTER_AUTH_SECRET`** | **セッションの署名鍵。漏れるとセッションを偽造できる** |
 
 | 想定する脅威 | 対策 |
 | --- | --- |
@@ -40,8 +41,7 @@
 
 ```mermaid
 flowchart TD
-    Req["リクエスト"] --> Px["① proxy.ts<br/>トークンの更新のみ"]
-    Px --> Layout["② (app)/layout.tsx<br/>ログイン済みか / 世帯に所属しているか"]
+    Req["リクエスト"] --> Layout["① (app)/layout.tsx<br/>ログイン済みか / 世帯に所属しているか"]
     Layout -- "NG" --> Redirect["/login または /setup"]
     Layout -- "OK" --> Page["画面"]
     Page --> Action["③ Server Action<br/>認証・入力を検証"]
@@ -51,10 +51,9 @@ flowchart TD
 
 | 段 | 役割 | 信頼度 | 省略できるか |
 | --- | --- | --- | --- |
-| ① `proxy.ts` | トークンの更新。**認可の判断をしない** | 低 | — |
-| ② レイアウトの振り分け | 画面を出さない（UX のため） | 中（迂回されうる） | — |
-| ③ Server Action | 認証・入力の検証 | 高 | **不可** |
-| ④ **DAL** | **世帯 ID による絞り込み** | **ここが唯一の砦** | **不可** |
+| ① レイアウトの振り分け | 画面を出さない（UX のため） | 中（迂回されうる） | — |
+| ② Server Action | 認証・入力の検証 | 高 | **不可** |
+| ③ **DAL** | **世帯 ID による絞り込み** | **ここが唯一の砦** | **不可** |
 | DB | 制約（金額 > 0、外部キー、一意） | データの正しさのみ | — |
 
 ### 2.1 旧構成との違い
@@ -107,12 +106,25 @@ alter default privileges in schema public revoke all on tables from anon, authen
 
 既定権限は打ち消したので自動では戻らない（実証済み）。ただし Supabase 側の設定変更で復活しうるため、**マイグレーションを適用したら毎回確認する**。
 
-```bash
-# Publishable key で REST API を叩く。401 / 42501 であること
-curl -s -o /dev/null -w "%{http_code}\n" \
-  -H "apikey: $NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
-  "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/transactions?select=id&limit=1"
+**[ADR-0007](../05-decisions/ADR-0007-better-auth.md) で Publishable key を env から外したので、SQL で確認する。**
+
+```sql
+-- anon / authenticated に public の権限が無いこと（0 行であること）
+select grantee, table_name, privilege_type
+from information_schema.table_privileges
+where grantee in ('anon', 'authenticated') and table_schema = 'public';
 ```
+
+REST API を実際に叩いて確かめたい場合は、Supabase ダッシュボード → Project Settings → API Keys から Publishable key を取ってくる。
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "apikey: <Publishable key>" \
+  "https://<project-ref>.supabase.co/rest/v1/transactions?select=id&limit=1"
+# → 401（42501 permission denied）であること
+```
+
+> **PostgREST は Supabase が立てたままで、消せない。** `anon` から権限を剥奪していることが唯一の防御。
 
 ### 追加で固めるなら
 
@@ -124,10 +136,11 @@ Supabase ダッシュボード → Project Settings → API の **Exposed schema
 
 | 事項 | 方針 |
 | --- | --- |
-| 方式 | **メールアドレス + パスワード**（Supabase Auth）。パスワードを忘れたときはマジックリンク → [ADR-0006](../05-decisions/ADR-0006-email-password-auth.md) |
-| パスワード | 8 文字以上 72 文字以内。文字種は要求しない。保存は Supabase（bcrypt） |
-| 総当たり対策 | **Supabase Auth の既定のレート制限に依る。** v1 では自前の制限を作らない（利用者が家族のみ） |
-| セッション | Cookie（`@supabase/ssr` が管理） |
+| 方式 | **メールアドレス + パスワード**（**better-auth** → [ADR-0007](../05-decisions/ADR-0007-better-auth.md)）。パスワードを忘れたときはマジックリンク → [ADR-0006](../05-decisions/ADR-0006-email-password-auth.md) |
+| セッション | **DB セッション**（`session` テーブル + Cookie）。HTTP 往復は無く、同じ DB への 1 クエリ |
+| パスワード | 8 文字以上 128 文字以内。文字種は要求しない。保存は better-auth（scrypt、`account.password`） |
+| 総当たり対策 | **better-auth の既定のレート制限に依る。** v1 では自前の制限を作らない（利用者が家族のみ）。Supabase のマネージドな保護は失ったので、公開するなら必ず見直す |
+
 | トークンの更新 | `src/proxy.ts` で毎リクエスト時に実施 |
 | 確認方法 | **`supabase.auth.getUser()` を使う** |
 
@@ -325,9 +338,9 @@ export async function createTransaction(formData: FormData) {
 | 置き場所 | **`.env.local` 1 つ**（Next.js と Prisma CLI で共用）。コミットしない |
 | 例の提供 | `.env.local.example` に変数名のみ（値は空） |
 | `.gitignore` | `.env*` で除外。`!.env.local.example` で雛形だけ除外解除 |
-| ブラウザに出てよいもの | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
-| **ブラウザに出してはいけないもの** | **`DATABASE_URL`, `DIRECT_URL`** |
-| 使わないもの | Supabase の Secret key（旧 `service_role` キー） |
+| ブラウザに出てよいもの | **現在ひとつも無い**（`NEXT_PUBLIC_` 付きの変数が存在しない） |
+| **ブラウザに出してはいけないもの** | **`DATABASE_URL`, `DIRECT_URL`, `BETTER_AUTH_SECRET`, `RESEND_API_KEY`** |
+| 使わないもの | Supabase の API キー（Publishable / Secret。認証に Supabase を使わないため不要） |
 
 ### 6.1 `DATABASE_URL` の扱い
 
@@ -398,19 +411,9 @@ Server Action は Next.js が Origin を検証するため、基本的な保護�
 
 ### 8.1 認証 Cookie を含むレスポンスをキャッシュさせない
 
-`@supabase/ssr@0.12.7` の `setAll` は第 2 引数でキャッシュ無効化ヘッダを渡してくる。**`proxy.ts` でこれをレスポンスに設定する**（NFR-S5）。
+better-auth は Cookie を `httpOnly` / `sameSite` 付きで設定し、Set-Cookie を含むレスポンスは Next.js が動的として扱う。**ただし認証後の画面を `use cache` でキャッシュしてはいけない**（NFR-S5）。
 
-```ts
-setAll(cookiesToSet, headers) {
-  for (const { name, value, options } of cookiesToSet) {
-    response.cookies.set(name, value, options);
-  }
-  // ← 忘れると、他人のセッションが CDN から配信されうる
-  for (const [key, value] of Object.entries(headers)) {
-    response.headers.set(key, value);
-  }
-}
-```
+認証後のセグメントは `instant = false` でサーバーレンダリングに固定してある（[ADR-0004](../05-decisions/ADR-0004-instant-false-for-authed-segments.md)）。この方針を崩すときは、キャッシュに個人データが載らないことを確認する。
 
 ### 8.2 キャッシュキーに個人情報を入れない
 
@@ -442,7 +445,7 @@ setAll(cookiesToSet, headers) {
 
 ### PostgREST の遮断（テーブルを足したら毎回）
 
-- [ ] Publishable key で `/rest/v1/<テーブル>` を叩いて **401 / 42501** になる（§2.2）
+- [ ] `anon` / `authenticated` の `public` テーブル権限が 0 件（§2.2 の SQL）
 - [ ] `anon` / `authenticated` の `public` テーブル権限が 0 件
 
 ### 約束 A/B/C
@@ -460,7 +463,6 @@ setAll(cookiesToSet, headers) {
 - [ ] `getSession()` を認可の判断に使っていない
 - [ ] `dangerouslySetInnerHTML` を使っていない
 - [ ] `queryRawUnsafe` / `executeRawUnsafe` を使っていない
-- [ ] `proxy.ts` で `setAll` の第 2 引数のヘッダを設定している
 - [ ] キャッシュキー・タグに個人情報が入っていない
 - [ ] エラーメッセージに Prisma の内部情報が出ていない
 
@@ -482,7 +484,7 @@ setAll(cookiesToSet, headers) {
 
 | 事象 | 対応 |
 | --- | --- |
-| **Publishable key でテーブルが読めた** | **すぐに他の作業を止める。** `0002_revoke_postgrest_access` の revoke が効いているか確認し、効いていなければ新しいマイグレーションで再度 revoke する（§2.2） |
+| **REST API（PostgREST）でテーブルが読めた** | **すぐに他の作業を止める。** `0002_revoke_postgrest_access` の revoke が効いているか確認し、効いていなければ新しいマイグレーションで再度 revoke する（§2.2） |
 | **他世帯のデータが見えた** | **すぐに他の作業を止める。** 該当の DAL 関数の `where` を修正 → 認可テストを追加 → 全 DAL 関数を見直す。[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) の「見直す条件」に該当するので、RLS への回帰も検討する |
 | 接続文字列が漏れた（コミット・`ps`・画面共有） | ① Supabase で **DB パスワードをリセット** ② `.env.local` の 2 本を更新 ③ コミットしていたら git 履歴から削除 |
 | 招待コードが漏れた | Prisma Studio か SQL で `inviteCode` を更新する（再発行機能が無いため） |
@@ -498,7 +500,7 @@ setAll(cookiesToSet, headers) {
 | 招待コードの試行回数制限 | 22 億通りで、利用者が家族のみ | 外部に公開する場合 |
 | 招待コードの再発行機能 | v1 のスコープ外 | コードが漏れた場合 |
 | 多要素認証 | 利用者が家族のみ。登録時にメールの所有確認をしている | 外部に公開する場合 |
-| パスワードの総当たり対策（自前） | Supabase Auth の既定のレート制限に依る | 総当たりが観測された場合 |
+| パスワードの総当たり対策（自前） | better-auth の既定のレート制限に依る。**Supabase のマネージドな保護は失った** | 総当たりが観測された場合 / 公開する場合 |
 | 監査ログ | `createdById` と `updatedAt` で足りる | 利用者が増えた場合 |
 | CSP | 外部スクリプトを読み込まないため効果が薄い | 外部サービスを組み込む場合 |
 | レート制限 | 利用者が家族のみ | 外部に公開する場合 |

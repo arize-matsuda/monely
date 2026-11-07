@@ -77,6 +77,7 @@
 | [ADR-0004](./05-decisions/ADR-0004-instant-false-for-authed-segments.md) | 認証後のセグメントを `instant = false` にする | 採用 |
 | [**ADR-0005**](./05-decisions/ADR-0005-authorization-in-app-layer.md) | **認可をアプリ層に置き、Prisma を採用する**（ADR-0002 を置き換え） | 採用 |
 | [ADR-0006](./05-decisions/ADR-0006-email-password-auth.md) | 認証をメール + パスワードにする（マジックリンクは再設定用に残す） | 採用 |
+| [**ADR-0007**](./05-decisions/ADR-0007-better-auth.md) | **認証基盤を Supabase Auth から better-auth に移す** | 採用 |
 
 ---
 
@@ -105,7 +106,8 @@
 | --- | --- |
 | フレームワーク | Next.js 16.4.5（App Router） |
 | UI | React 19 + Tailwind CSS v4 |
-| DB・認証 | Supabase（PostgreSQL + Supabase Auth） |
+| DB | Supabase（PostgreSQL。**認証には使わない**） |
+| 認証 | better-auth（Prisma 管理のテーブル） |
 | データアクセス | Prisma（スキーマ・マイグレーション・クエリ） |
 | 認可 | **アプリ層（`src/lib/data/`）** |
 | Lint / Format | Biome |

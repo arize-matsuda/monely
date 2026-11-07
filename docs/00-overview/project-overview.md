@@ -81,7 +81,8 @@
 | --- | --- | --- |
 | フレームワーク | Next.js（App Router） | 16.4.5 |
 | UI | React + Tailwind CSS | 19.3.0 / v4 |
-| DB・認証 | Supabase（PostgreSQL + Supabase Auth） | クラウド無料プラン |
+| DB | Supabase（PostgreSQL のみ） | クラウド無料プラン |
+| 認証 | better-auth | 1.7.18 |
 | データアクセス | Prisma（ORM） | 7.10.1 |
 | 認可 | アプリ層（`src/lib/data/`） | — |
 | Lint / Format | Biome | 2.4.2 |
@@ -91,14 +92,14 @@
 選定理由 → [ADR-0001 技術スタック](../05-decisions/ADR-0001-tech-stack.md)
 構成と責務 → [アーキテクチャ](../02-design/architecture.md)
 
-設計上の重要な判断は 6 本の ADR に記録してある → [05-decisions/](../05-decisions/)
+設計上の重要な判断は 7 本の ADR に記録してある → [05-decisions/](../05-decisions/)
 
 > **2026-11-07 に認可の方針を変更した。** DB の RLS からアプリ層（Data Access Layer）に移した。経緯と代償 → [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)
 
 ## 7. 現在の状態
 
-- リポジトリは `create-next-app` 直後のスキャフォールド + 本ドキュメント群。アプリのコードはまだ無い。
-- Supabase クライアントの依存のみ追加済み（`@supabase/supabase-js`, `@supabase/ssr`）。
+- M0（土台）、M1（DB スキーマ）、M2（認証と世帯）が完了。
+- 認証（メール + パスワード、世帯の作成・参加）まで実装済み（M2）。
 - 次にやること → [実装計画](../04-development/implementation-plan.md) の M0。
 - 進行状況 → [タスクリスト](../04-development/task-list.md)
 
@@ -131,7 +132,8 @@ docs/
     ├── ADR-0003-one-household-per-user.md         1 ユーザー = 1 世帯
     ├── ADR-0004-instant-false-for-authed-segments.md  認証後は instant = false
     ├── ADR-0005-authorization-in-app-layer.md     認可をアプリ層に置き Prisma を採用
-    └── ADR-0006-email-password-auth.md            認証をメール + パスワードに
+    ├── ADR-0006-email-password-auth.md            認証をメール + パスワードに
+    └── ADR-0007-better-auth.md                    認証基盤を better-auth に
 ```
 
 ### 実装を始める前に必ず読むもの

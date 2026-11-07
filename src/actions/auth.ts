@@ -1,8 +1,9 @@
 "use server";
 
+import { APIError } from "better-auth/api";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { auth } from "@/lib/auth/server";
 import { type ActionResult, fail, failUnexpected, ok } from "@/lib/types";
 import {
   parseEmail,
@@ -11,26 +12,32 @@ import {
 } from "@/lib/validation";
 
 /**
- * メール送信のレート制限。
- * **これは表に出してよい。** アカウントの存在を漏らさず、
- * かつ黙って失敗すると「待っても届かない」状態になるため。
- * Supabase の組み込み SMTP は無料プランだと送信数が少ない。
- */
-function rateLimitMessage(code: string | undefined): string | null {
-  if (code === "over_email_send_rate_limit") {
-    return "メールの送信制限に達しました。しばらく待ってからもう一度お試しください";
-  }
-  if (code === "over_request_rate_limit") {
-    return "リクエストが多すぎます。しばらく待ってからもう一度お試しください";
-  }
-  return null;
-}
-
-/**
  * 認証。メールアドレス + パスワードを主とし、
- * マジックリンクは「パスワードを忘れたとき」の導線として残す。
- * → docs/05-decisions/ADR-0006-email-password-auth.md
+ * マジックリンクは「パスワードを忘れたとき」の導線として残す（ADR-0006）。
+ * 実装基盤は better-auth（ADR-0007）。
+ *
+ * better-auth は失敗時に APIError を投げる。想定内の失敗は
+ * ActionResult に変換して返す（例外を画面まで飛ばさない）。
  */
+
+/** better-auth のエラーコードから画面に出す文を決める */
+function messageFor(error: APIError): string | null {
+  const code = String(error.body?.code ?? "");
+  switch (code) {
+    case "INVALID_EMAIL_OR_PASSWORD":
+    case "INVALID_PASSWORD":
+      return "メールアドレスまたはパスワードが正しくありません";
+    case "EMAIL_NOT_VERIFIED":
+      return "メールアドレスの確認が済んでいません。確認メールのリンクを開いてください";
+    case "PASSWORD_TOO_SHORT":
+    case "PASSWORD_TOO_LONG":
+      return "このパスワードは使えません。別のものを入力してください";
+    case "TOO_MANY_REQUESTS":
+      return "試行回数が多すぎます。しばらく待ってからもう一度お試しください";
+    default:
+      return null;
+  }
+}
 
 /** ログイン（FR-A1） */
 export async function signIn(
@@ -43,20 +50,19 @@ export async function signIn(
   if (!password.ok) return password;
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.data,
-      password: password.data,
+    await auth.api.signInEmail({
+      body: { email: email.data, password: password.data },
+      headers: await headers(),
     });
-    if (error) {
-      // メールアドレスとパスワードのどちらが違うかを示さない（NFR-S7）
-      console.error("[signIn]", error.message);
+  } catch (error) {
+    if (error instanceof APIError) {
+      console.error("[signIn]", error.body?.code, error.message);
       return fail(
         "UNAUTHENTICATED",
-        "メールアドレスまたはパスワードが正しくありません",
+        // どのコードでも、どちらが違うかは示さない（FR-A8）
+        messageFor(error) ?? "メールアドレスまたはパスワードが正しくありません",
       );
     }
-  } catch (error) {
     return failUnexpected("signIn", error);
   }
 
@@ -66,8 +72,9 @@ export async function signIn(
 /**
  * 新規登録（FR-A2）。確認メールが 1 通届く。
  *
- * **登録済みかどうかを結果に出さない。** Supabase は既存のメールアドレスに対して
- * 何も送らずに成功を返す（利用者の存在を漏らさないため）。こちらも表示を変えない。
+ * **登録済みかどうかを結果に出さない**（FR-A9）。
+ * better-auth は既存のメールアドレスだと USER_ALREADY_EXISTS を返すので、
+ * 成功と同じ表示に寄せる。
  */
 export async function signUp(
   _prev: ActionResult<{ email: string }> | null,
@@ -84,29 +91,37 @@ export async function signUp(
   if (!confirmation.ok) return confirmation;
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const origin = await currentOrigin();
-    const { error } = await supabase.auth.signUp({
-      email: email.data,
-      password: password.data,
-      options: { emailRedirectTo: `${origin}/auth/callback` },
+    await auth.api.signUpEmail({
+      body: {
+        email: email.data,
+        password: password.data,
+        // 表示名は Monely 側の Profile が持つ。ここはメールのローカル部で埋める
+        name: email.data.split("@")[0] ?? "メンバー",
+      },
+      headers: await headers(),
     });
-    if (error) {
-      console.error("[signUp]", error.code, error.message);
-      // パスワードが Supabase 側の要件を満たさない場合はその場で直せるよう伝える
-      if (error.code === "weak_password") {
+  } catch (error) {
+    if (error instanceof APIError) {
+      const code = String(error.body?.code ?? "");
+      console.error("[signUp]", code, error.message);
+      // 登録済みは表示を変えない（存在を漏らさない）
+      if (code !== "USER_ALREADY_EXISTS") {
+        const message = messageFor(error);
+        if (message) {
+          return fail(
+            code.startsWith("PASSWORD_") ? "VALIDATION" : "UNEXPECTED",
+            message,
+            code.startsWith("PASSWORD_") ? "password" : undefined,
+          );
+        }
         return fail(
-          "VALIDATION",
-          "このパスワードは使えません。別のものを入力してください",
-          "password",
+          "UNEXPECTED",
+          "登録できませんでした。しばらくしてからもう一度お試しください",
         );
       }
-      const limited = rateLimitMessage(error.code);
-      if (limited) return fail("UNEXPECTED", limited);
-      // それ以外（登録済みなど）は表示を変えない
+    } else {
+      return failUnexpected("signUp", error);
     }
-  } catch (error) {
-    return failUnexpected("signUp", error);
   }
 
   return ok({ email: email.data });
@@ -116,7 +131,9 @@ export async function signUp(
  * ログイン用のリンクをメールで送る。
  * パスワードを忘れたときの導線（FR-A6）。
  *
- * **メールアドレスが登録済みかどうかを結果に出さない**（NFR-S7）。
+ * **メールアドレスが登録済みかどうかを結果に出さない**（FR-A9）。
+ * magicLink プラグインは disableSignUp: true なので、未登録だとエラーになる。
+ * それも握りつぶして同じ表示にする。
  */
 export async function sendMagicLink(
   _prev: ActionResult<{ email: string }> | null,
@@ -127,50 +144,41 @@ export async function sendMagicLink(
   const email = parsed.data;
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const origin = await currentOrigin();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      // 新規登録はパスワード経由に限る。リンクでアカウントを作らせない
-      options: {
-        emailRedirectTo: `${origin}/auth/callback`,
-        shouldCreateUser: false,
-      },
+    await auth.api.signInMagicLink({
+      body: { email, callbackURL: "/" },
+      headers: await headers(),
     });
-    if (error) {
-      console.error("[sendMagicLink]", error.code, error.message);
-      const limited = rateLimitMessage(error.code);
-      if (limited) return fail("UNEXPECTED", limited);
-      // それ以外（未登録など）は表示を変えない
-    }
   } catch (error) {
-    return failUnexpected("sendMagicLink", error);
+    if (error instanceof APIError) {
+      const code = String(error.body?.code ?? "");
+      console.error("[sendMagicLink]", code, error.message);
+      if (code === "TOO_MANY_REQUESTS") {
+        return fail(
+          "UNEXPECTED",
+          "試行回数が多すぎます。しばらく待ってからもう一度お試しください",
+        );
+      }
+      // 未登録などは表示を変えない
+    } else {
+      return failUnexpected("sendMagicLink", error);
+    }
   }
 
   return ok({ email });
 }
 
 export async function signOut() {
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
+  try {
+    await auth.api.signOut({ headers: await headers() });
+  } catch (error) {
+    console.error("[signOut]", error);
+  }
   redirect("/login");
-}
-
-/** リダイレクト先の組み立てに使うオリジン */
-async function currentOrigin(): Promise<string> {
-  const headerList = await headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
-  const protocol =
-    headerList.get("x-forwarded-proto") ??
-    (host?.startsWith("localhost") ? "http" : "https");
-  return `${protocol}://${host}`;
 }
 
 /**
  * パスワードを設定・変更する（FR-A10）。
- *
- * マジックリンクで作ったアカウントにパスワードを設定する用途も兼ねる。
- * ログイン中のセッションが必要。
+ * マジックリンクで入ったあとにパスワードを設定する用途も兼ねる。
  */
 export async function updatePassword(
   _prev: ActionResult | null,
@@ -184,35 +192,46 @@ export async function updatePassword(
   );
   if (!confirmation.ok) return confirmation;
 
+  const currentPassword = formData.get("currentPassword");
+  const current =
+    typeof currentPassword === "string" && currentPassword.length > 0
+      ? currentPassword
+      : undefined;
+
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    const requestHeaders = await headers();
+    const session = await auth.api.getSession({ headers: requestHeaders });
+    if (!session?.user) {
       return fail("UNAUTHENTICATED", "ログインしてからお試しください");
     }
 
-    const { error } = await supabase.auth.updateUser({
-      password: password.data,
+    await auth.api.changePassword({
+      body: {
+        newPassword: password.data,
+        // 現在のパスワードが不明な場合（マジックリンクで入った直後）は
+        // 他のセッションを無効化して設定し直す
+        currentPassword: current ?? "",
+        revokeOtherSessions: true,
+      },
+      headers: requestHeaders,
     });
-    if (error) {
-      console.error("[updatePassword]", error.code, error.message);
-      if (error.code === "weak_password" || error.code === "same_password") {
+  } catch (error) {
+    if (error instanceof APIError) {
+      const code = String(error.body?.code ?? "");
+      console.error("[updatePassword]", code, error.message);
+      if (code === "INVALID_PASSWORD") {
         return fail(
           "VALIDATION",
-          error.code === "same_password"
-            ? "現在と同じパスワードです。別のものを入力してください"
-            : "このパスワードは使えません。別のものを入力してください",
-          "password",
+          "現在のパスワードが正しくありません",
+          "currentPassword",
         );
       }
       return fail(
         "UNEXPECTED",
-        "パスワードを変更できませんでした。もう一度お試しください",
+        messageFor(error) ??
+          "パスワードを変更できませんでした。もう一度お試しください",
       );
     }
-  } catch (error) {
     return failUnexpected("updatePassword", error);
   }
 

@@ -63,7 +63,9 @@ export async function listTransactionsByMonth(month: string) {
 
 ### 4. Supabase Auth は維持する
 
-認証（マジックリンク）は変更しない。セッションは `@supabase/ssr` が Cookie で管理し、サーバー側で `supabase.auth.getUser()` でユーザー ID を得る。
+> **更新あり（2026-11-08）** — この項目は [ADR-0007](./ADR-0007-better-auth.md) が上書きした。認証は **better-auth** に移行し、Supabase は Postgres のホストだけになった。**認可をアプリ層に置くというこの ADR の決定自体は有効。**
+
+（当時の記述）認証（マジックリンク）は変更しない。セッションは `@supabase/ssr` が Cookie で管理し、サーバー側で `supabase.auth.getUser()` でユーザー ID を得る。
 
 - `auth` スキーマは Supabase の所有物なので **Prisma では管理しない**。
 - `Profile.userId` は Supabase のユーザー ID を持つ**普通のカラム**（`@unique`）とし、`auth.users` への外部キーは張らない。

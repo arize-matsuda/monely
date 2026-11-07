@@ -15,8 +15,9 @@
 > | ORM を使わない | **Prisma を使う**（スキーマ・マイグレーション・クエリ） |
 > | テストは v1 では導入しない | **Vitest を導入する**（DAL の認可を守るため。ADR-0005 の約束 C） |
 > | マジックリンク認証 | **メールアドレス + パスワード**（[ADR-0006](./ADR-0006-email-password-auth.md)）。マジックリンクはパスワードを忘れたときの導線として残す |
+> | Supabase を認証のホストとして使う | **better-auth**（[ADR-0007](./ADR-0007-better-auth.md)）。Supabase は DB のみ |
 >
-> それ以外（Next.js 16、Supabase を DB と認証のホストとして使う、API 層を作らない、Biome のみ、デプロイ先を今決めない）は有効。
+> それ以外（Next.js 16、Supabase を DB のホストとして使う、API 層を作らない、Biome のみ、デプロイ先を今決めない）は有効。
 
 ---
 

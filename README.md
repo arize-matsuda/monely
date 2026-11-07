@@ -24,7 +24,8 @@ AI エージェントで作業する場合は [`AGENTS.md`](./AGENTS.md) を参�
 | --- | --- |
 | フレームワーク | Next.js 16.4.5（App Router） |
 | UI | React 19 + Tailwind CSS v4 |
-| DB・認証 | Supabase（PostgreSQL + Supabase Auth） |
+| DB | Supabase（PostgreSQL のみ） |
+| 認証 | better-auth 1.7.18 |
 | データアクセス | Prisma 7（スキーマ・マイグレーション・クエリ） |
 | 認可 | **アプリ層**（`src/lib/data/`） |
 | Lint / Format | Biome |
@@ -37,7 +38,7 @@ AI エージェントで作業する場合は [`AGENTS.md`](./AGENTS.md) を参�
 >
 > そのため **`src/lib/data/` の `where` が唯一の砦**。`prisma` をそこ以外から import しない。詳細 → [セキュリティガイドライン](./docs/03-guidelines/security-guidelines.md)
 
-> **この Next.js は 16.4.5 で、一般的な記事と差がある。** Middleware は `proxy.ts` に改名され、`cacheComponents` が有効。一次情報は `node_modules/next/dist/docs/`。
+> **この Next.js は 16.4.5 で、一般的な記事と差がある。** `cacheComponents` が有効で、`cookies()` を読む箇所に制約がある。一次情報は `node_modules/next/dist/docs/`。
 
 ## セットアップ
 
@@ -55,18 +56,21 @@ pnpm dev                           # http://localhost:3000
 2. Project Settings → **Connect** から接続文字列を 2 本取り、`.env.local` に設定する
    - `DATABASE_URL` … **Transaction pooler**（ポート 6543）
    - `DIRECT_URL` … **Session pooler**（ポート 5432）
-3. Project Settings → **API Keys** の Project URL と Publishable key を `.env.local` に設定する
+3. `BETTER_AUTH_SECRET` を生成して `.env.local` に設定する
+   ```bash
+   node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+   ```
 4. `pnpm db:deploy` でスキーマを適用する
-5. Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録する
 
 | 変数 | 用途 | 注意 |
 | --- | --- | --- |
 | `DATABASE_URL` | アプリのクエリ（6543） | **DB の全権を持つ。`NEXT_PUBLIC_` を付けない** |
 | `DIRECT_URL` | マイグレーション（5432） | 同上。**6543 に向けるとマイグレーションがハングする** |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Auth | ブラウザに出る |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Auth | ブラウザに出る |
+| `BETTER_AUTH_SECRET` | セッションの署名鍵 | **漏れるとセッションを偽造できる** |
+| `BETTER_AUTH_URL` | アプリの URL | 既定 `http://localhost:3000` |
+| `RESEND_API_KEY` / `MAIL_FROM` | メール送信 | **未設定なら開発モード（確認リンクをコンソールに出力）** |
 
-**Secret key（旧 `service_role`）は使わない。**
+**認証は Supabase Auth を使いません**（better-auth に移行）。Supabase の API キーは不要です。
 
 ## コマンド
 
