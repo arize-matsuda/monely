@@ -216,11 +216,52 @@ $$;
 
 ---
 
-## 5. RLS（行レベルセキュリティ）
+## 5. 権限と RLS（行レベルセキュリティ）
+
+認可は 2 段で成り立つ。**ロールのテーブル権限**（そもそも触れるか）と **RLS のポリシー**（どの行に触れるか）。
+RLS だけ書いても、権限が余っていると RLS をすり抜ける操作が残る。
+
+### 5.0 テーブル権限（先に剥がしてから付け直す）
+
+**Supabase は既定で `public` の新規テーブルに ALL を付与する。**
+
+```sql
+-- Supabase 側の既定設定（こちらで書くものではない）
+alter default privileges in schema public
+  grant all on tables to postgres, anon, authenticated, service_role;
+```
+
+`ALL` には **TRUNCATE / TRIGGER / REFERENCES** が含まれ、**`TRUNCATE` は RLS の対象外**。
+つまり `grant` を足すだけでは足りず、ログイン済みの誰でも
+
+```sql
+truncate public.transactions;   -- 全世帯のデータが消える
+```
+
+を実行できてしまう。**ローカルの Postgres 17 で実際に再現した**（2026-11-07）。
+
+そのため、マイグレーションでは**まず全部剥がしてから必要な操作だけを付け直す**。
+
+```sql
+revoke all on public.households from anon, authenticated;
+-- …4 テーブル分
+
+grant select, update                   on public.households  to authenticated;
+grant select, insert, update           on public.profiles    to authenticated;
+grant select, insert, update, delete   on public.categories  to authenticated;
+grant select, insert, update, delete   on public.transactions to authenticated;
+```
+
+付与する操作は §5.1 のポリシー表と一致させる。`anon`（未ログイン）には何も付与しない。
+
+| ロール | `households` | `profiles` | `categories` | `transactions` |
+| --- | --- | --- | --- | --- |
+| `anon` | なし | なし | なし | なし |
+| `authenticated` | SELECT, UPDATE | SELECT, INSERT, UPDATE | SELECT, INSERT, UPDATE, DELETE | SELECT, INSERT, UPDATE, DELETE |
+
+### 5.1 RLS ポリシー一覧
 
 4 テーブルすべてで RLS を有効にする。
-
-### 5.1 ポリシー一覧
 
 | テーブル | SELECT | INSERT | UPDATE | DELETE |
 | --- | --- | --- | --- | --- |
@@ -256,8 +297,9 @@ create policy transactions_insert on public.transactions
 ### 5.3 テーブルや列を足すときの手順
 
 1. テーブルを作ったら**その場で** `alter table ... enable row level security` を書く。
-2. 4 操作分のポリシーを漏れなく書く（提供しない操作はポリシーを作らない = 全拒否）。
-3. [AC-9](../01-requirements/functional-requirements.md#ac-9-他世帯のデータが見えないfr-x2-br-12最重要) を再実行する。
+2. **`revoke all ... from anon, authenticated` を書いてから、必要な操作だけ `grant` する**（§5.0）。これを忘れると `TRUNCATE` の穴が残る。
+3. 4 操作分のポリシーを漏れなく書く（提供しない操作はポリシーを作らない = 全拒否）。
+4. [AC-9](../01-requirements/functional-requirements.md#ac-9-他世帯のデータが見えないfr-x2-br-12最重要) を再実行する。
 
 RLS を有効にしてポリシーを書かないテーブルは「誰も読めない」状態になる。これは安全側の失敗なので、迷ったらポリシーを書かない。
 
@@ -271,6 +313,8 @@ RLS は「書けたつもり」が最も危ない。M2 の完了条件として�
 4. B のセッションで A の記録の ID を直接指定して取得・更新・削除を試みる → **いずれも失敗すること**。
 
 手順の詳細 → [テスト戦略](../03-guidelines/testing-strategy.md)
+
+Docker があれば、同じ確認を `supabase/verify/run.sh` でローカルの Postgres に対して実行できる（本番に触れずに済む）。
 
 ---
 

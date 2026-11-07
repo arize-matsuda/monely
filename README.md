@@ -52,6 +52,16 @@ pnpm dev                           # http://localhost:3000
 
 **`service_role` キーは使わない。** → [ADR-0002](./docs/05-decisions/ADR-0002-authorization-via-rls.md)
 
+### マイグレーションのローカル検証
+
+SQL を SQL Editor に貼る前に、Docker 上の Postgres で検証できる（本番に触れない）。
+
+```bash
+./supabase/verify/run.sh
+```
+
+冪等性・権限・RLS の侵入確認（AC-9）までまとめて流す。詳細 → [`supabase/verify/README.md`](./supabase/verify/README.md)
+
 ## コマンド
 
 ```bash

@@ -107,12 +107,33 @@ from pg_class
 where relname in ('households','profiles','categories','transactions');
 -- → relrowsecurity がすべて true
 
--- ポリシーが揃っているか
+-- ポリシーが揃っているか（13 本）
 select tablename, policyname, cmd
 from pg_policies
 where schemaname = 'public'
 order by tablename, cmd;
+
+-- 権限が絞れているか。TRUNCATE が残っていると RLS をすり抜けて全件削除できる
+select grantee, table_name, string_agg(privilege_type, ',' order by privilege_type) as privs
+from information_schema.table_privileges
+where grantee in ('anon', 'authenticated') and table_schema = 'public'
+group by grantee, table_name
+order by grantee, table_name;
+-- → anon は 0 行
+-- → authenticated は households: SELECT,UPDATE / profiles: INSERT,SELECT,UPDATE
+--    / categories・transactions: DELETE,INSERT,SELECT,UPDATE
+--    TRUNCATE・TRIGGER・REFERENCES が混ざっていたら NG
 ```
+
+### 4.1.1 Docker があればローカルで全部確認できる
+
+`supabase/verify/` に、Supabase 環境を模倣したローカル Postgres で §4.1 と §4.2 を一括実行するスクリプトがある。**本番のプロジェクトに触れずに済む**ので、スキーマを変えたらまずこれを流す。
+
+```bash
+./supabase/verify/run.sh
+```
+
+Docker Desktop の起動だけが前提（Supabase CLI は不要）。詳細 → `supabase/verify/README.md`
 
 ### 4.2 RLS の侵入確認（毎回実施）
 
@@ -134,6 +155,7 @@ order by tablename, cmd;
 | 3 | B で `/transactions/<A の記録の ID>` を直接開く | 「見つかりませんでした」が出る。**金額やカテゴリが一瞬でも表示されない** |
 | 4 | B で `/settings` を開く | メンバー一覧に B のみ。A の名前が出ない。招待コードは B のもの |
 | 5 | B のセッションで A の記録を更新・削除しようとする | 失敗する（下記の方法で試す） |
+| 6 | B のセッションで `truncate public.transactions` を試す | **権限エラーで拒否される**（RLS では止まらないので権限で止める。[DB設計 §5.0](../02-design/database-design.md#50-テーブル権限先に剥がしてから付け直す)） |
 
 #### #5 の試し方
 
@@ -173,6 +195,7 @@ rollback;
 | `profiles` の取得で無限再帰のエラー | `current_household_id()` に `security definer` が付いていない |
 | 更新が通ってしまう | UPDATE ポリシーの `with check` が無い |
 | 他世帯のカテゴリ・メンバーを記録に紐付けられる | アクション内の所属確認が無い（RLS では防げない。[API設計 §4.3](../02-design/api-design.md#43-記録srcactionstransactionsts)） |
+| `truncate` で全件消せる | `revoke all` を書かずに `grant` だけ足している（[DB設計 §5.0](../02-design/database-design.md#50-テーブル権限先に剥がしてから付け直す)） |
 
 ### 4.3 金額と日付の確認（M3）
 

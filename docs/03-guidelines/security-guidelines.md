@@ -103,7 +103,7 @@ const { data: { user } } = await supabase.auth.getUser();
 
 ### 4.1 RLS が本体
 
-4 テーブルすべてで RLS を有効にし、「自分の世帯の行だけ」に限定する。定義 → [DB設計 §5](../02-design/database-design.md#5-rls行レベルセキュリティ) / 判断の経緯と守るべき前提 → [ADR-0002](../05-decisions/ADR-0002-authorization-via-rls.md)
+4 テーブルすべてで RLS を有効にし、「自分の世帯の行だけ」に限定する。定義 → [DB設計 §5](../02-design/database-design.md#5-権限と-rls行レベルセキュリティ) / 判断の経緯と守るべき前提 → [ADR-0002](../05-decisions/ADR-0002-authorization-via-rls.md)
 
 ```sql
 -- 必ずこの形。to authenticated を忘れない（anon に開かない）
@@ -115,9 +115,23 @@ create policy transactions_select on public.transactions
 ### 4.2 テーブルを足したときの手順
 
 1. `alter table ... enable row level security` を**その場で**書く。
-2. 提供する操作の分だけポリシーを書く（提供しない操作はポリシーを作らない = 全拒否）。
-3. UPDATE には `using` と `with check` を**両方**書く。
-4. [RLS の侵入確認](./testing-strategy.md#42-rls-の侵入確認毎回実施)を再実行する。
+2. **`revoke all on <table> from anon, authenticated;` を書いてから、必要な操作だけ `grant` する。**
+3. 提供する操作の分だけポリシーを書く（提供しない操作はポリシーを作らない = 全拒否）。
+4. UPDATE には `using` と `with check` を**両方**書く。
+5. [RLS の侵入確認](./testing-strategy.md#42-rls-の侵入確認毎回実施)を再実行する。
+
+#### 2 を省略すると TRUNCATE で全世帯のデータが消える
+
+Supabase は既定で `public` の新規テーブルに `ALL` を付与する。`ALL` には **TRUNCATE が含まれ、TRUNCATE は RLS の対象外**。
+
+```sql
+-- ログイン済みの誰でも実行できてしまう（RLS は止められない）
+truncate public.transactions;
+```
+
+**ローカルの Postgres 17 で実際に再現した**（2026-11-07、`supabase/verify/`）。`DELETE` は RLS が 0 行に抑えるが、`TRUNCATE` は素通りする。
+
+→ [DB設計 §5.0](../02-design/database-design.md#50-テーブル権限先に剥がしてから付け直す)
 
 RLS を有効にしてポリシーを書かないテーブルは「誰も読めない」状態になる。これは安全側の失敗。**迷ったらポリシーを書かない。**
 
@@ -318,10 +332,21 @@ setAll(cookiesToSet, headers) {
 ### DB
 
 - [ ] 新しいテーブルに RLS が有効
+- [ ] **`authenticated` の権限に TRUNCATE / TRIGGER / REFERENCES が残っていない**（下の SQL で確認）
+- [ ] `anon` にテーブル権限が 1 つも無い
 - [ ] ポリシーに `to authenticated` が付いている
 - [ ] UPDATE のポリシーに `using` と `with check` の両方がある
 - [ ] `security definer` 関数に `set search_path = public` が付いている
 - [ ] `security definer` 関数が ID を引数で受け取っていない
+
+```sql
+-- 権限の確認。authenticated に TRUNCATE などが混ざっていないこと、anon が 0 行であること
+select grantee, table_name, string_agg(privilege_type, ',' order by privilege_type) as privs
+from information_schema.table_privileges
+where grantee in ('anon', 'authenticated') and table_schema = 'public'
+group by grantee, table_name
+order by grantee, table_name;
+```
 
 ### 動作
 

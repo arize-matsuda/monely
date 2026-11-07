@@ -28,8 +28,8 @@
 
 | | |
 | --- | --- |
-| **進行中のマイルストーン** | M1（未着手）。M0 は完了（2026-11-07） |
-| **次にやること** | M1-1 Supabase に無料プロジェクトを作る（**手作業**） |
+| **進行中のマイルストーン** | M1（SQL 作成と検証は完了。残りは**手作業**） |
+| **次にやること** | M1-6 SQL Editor で `0001_init.sql` を実行 →  M1-8 Redirect URLs 登録 → M1-9 `.env.local` 設定（いずれも手作業） |
 | **ブロッカー** | なし |
 
 ---
@@ -79,32 +79,42 @@
 
 ## M1 — Supabase プロジェクトと DB スキーマ
 
-### 未着手
+SQL の作成とローカル検証は完了。**残りは Supabase ダッシュボードでの手作業**。
 
-- [ ] M1-1 Supabase に無料プロジェクトを作る（**手作業**）
-- [ ] M1-2 `supabase/migrations/0001_init.sql` を書く — テーブル 4 つ
-- [ ] M1-3 同 — `current_household_id()`、`handle_new_user()`、`touch_updated_at()`
-- [ ] M1-4 同 — `create_household()`、`join_household()`（初期カテゴリの投入を含む）
-- [ ] M1-5 同 — RLS ポリシー（4 テーブル分）
-- [ ] M1-6 SQL Editor で実行する
-- [ ] M1-7 2 回続けて実行してもエラーが出ないことを確認（冪等性）
-- [ ] M1-8 Redirect URLs に `http://localhost:3000/auth/callback` を登録（**手作業**）
-- [ ] M1-9 `.env.local` に URL と公開キーを設定
-- [ ] M1-10 [テスト戦略 §4.1](../03-guidelines/testing-strategy.md#41-スキーマと-rls-の確認m1) のチェックリストを実施
+### 未着手（手作業）
+
+- [ ] M1-6 `supabase/migrations/0001_init.sql` を SQL Editor に貼って実行する
+- [ ] M1-8 Authentication → URL Configuration の Redirect URLs に `http://localhost:3000/auth/callback` を登録する
+- [ ] M1-9 Project Settings → API の URL と公開キーを `.env.local` に設定する（`cp .env.local.example .env.local`）
+- [ ] M1-10 [テスト戦略 §4.1](../03-guidelines/testing-strategy.md#41-スキーマと-rls-の確認m1) のチェックリストを**本番プロジェクトに対して**実施する
 
 ### 完了
 
-（なし）
+- [x] M1-1 Supabase に無料プロジェクトを作る（2026-11-07）
+- [x] M1-2 `supabase/migrations/0001_init.sql` — テーブル 4 つ（2026-11-07）
+- [x] M1-3 同 — `current_household_id()`、`handle_new_user()`、`touch_updated_at()`、`generate_invite_code()`（2026-11-07）
+- [x] M1-4 同 — `create_household()`、`join_household()`（初期カテゴリ 18 件の投入を含む）（2026-11-07）
+- [x] M1-5 同 — テーブル権限（revoke → grant）と RLS ポリシー 13 本（2026-11-07）
+- [x] M1-7 冪等性の確認（ローカルで 2 回連続実行して成功）（2026-11-07）
+- [x] M1-11 ローカル検証スクリプト `supabase/verify/` を作成（2026-11-07。当初のタスクには無かったが、下記の不具合を見つけたため残した）
+
+### M1 で見つけて直した不具合
+
+**`TRUNCATE` で全世帯のデータを消せる状態だった。**
+
+Supabase は既定で `public` の新規テーブルに `ALL` を付与する。`ALL` に含まれる `TRUNCATE` は **RLS の対象外**なので、`revoke all` を書かずに `grant` だけ足していると、ログイン済みの誰でも `truncate public.transactions` で全件削除できる。ローカルの Postgres 17 で再現を確認した（`DELETE` は RLS が 0 行に抑えるが、`TRUNCATE` は素通りした）。
+
+修正: マイグレーションの権限節を「まず `revoke all ... from anon, authenticated`、その後で必要な操作だけ `grant`」に変更。ドキュメントにも反映した（[DB設計 §5.0](../02-design/database-design.md#50-テーブル権限先に剥がしてから付け直す)、[セキュリティガイドライン §4.2](../03-guidelines/security-guidelines.md#42-テーブルを足したときの手順)、[テスト戦略 §4.1.1](../03-guidelines/testing-strategy.md#411-docker-があればローカルで全部確認できる)）。
+
+**本番のプロジェクトには修正後の SQL を適用すること**（修正前のものを流していた場合は、貼り直せば権限が直る。冪等なので安全）。
 
 ### 適用済みマイグレーション
 
 | ファイル | 適用日 | 備考 |
 | --- | --- | --- |
-| （なし） | | |
+| `0001_init.sql` | （未適用） | ローカル検証は合格。本番への適用は M1-6 |
 
 > 適用状況を DB 側で管理しないため、ここに記録する。
-
----
 
 ## M2 — 認証と世帯
 
@@ -235,6 +245,19 @@ v1 を 1 か月使ってから判断する。候補は [プロダクト要件 §
 ## 確認結果の記録
 
 マイルストーン完了時にここへ追記する（新しいものを上に）。
+
+### M1 確認結果（2026-11-07、ローカル検証のみ）
+
+`./supabase/verify/run.sh`（Supabase 環境を模倣した Postgres 17）で実施。**本番プロジェクトへの適用はまだ**。
+
+- マイグレーションの 2 回連続実行: OK（冪等）
+- RLS: 4 テーブルすべて有効、ポリシー 13 本すべて `to authenticated`
+- 権限: `anon` は 0 件。`authenticated` は households `SELECT,UPDATE` / profiles `INSERT,SELECT,UPDATE` / categories・transactions `DELETE,INSERT,SELECT,UPDATE`（TRUNCATE・TRIGGER・REFERENCES なし）
+- `security definer` 関数 5 本すべてに `search_path` 固定あり
+- 機能: profiles 自動生成 OK / 招待コード 500 件すべて `^[A-Z0-9]{6}$` OK / 初期カテゴリ 13+5 OK / 二重作成の拒否 OK / `created_by` 偽装の拒否 OK / amount 0・負数の拒否 OK / `generate_invite_code` の直接呼び出し拒否 OK / 無効な招待コードの拒否 OK / 小文字の招待コードで参加 OK
+- **AC-9**: 別世帯から 読み取り 0 件 / 更新 0 行 / 削除 0 行 / TRUNCATE 拒否 / 他世帯への書き込み RLS 拒否 / anon 権限なし。A のデータは無傷
+- 想定どおりの限界も確認: 他世帯の `category_id` の紐付けは **RLS では防げない**（M3 でアプリ側の所属確認が必須）
+- 残課題: 本番プロジェクトへの適用（M1-6）と本番での §4.1 確認（M1-10）
 
 ### M0 確認結果（2026-11-07）
 
