@@ -1,4 +1,12 @@
+import { HousePlus, Users } from "lucide-react";
 import { redirect } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { CreateHouseholdForm, JoinHouseholdForm } from "./setup-forms";
 
@@ -18,30 +26,48 @@ export default async function SetupPage() {
 
   return (
     <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight">はじめの設定</h1>
-      <p className="mt-1 text-sm text-muted">
+      <h1 className="font-heading text-2xl font-semibold tracking-tight">
+        はじめの設定
+      </h1>
+      <p className="mt-1 text-sm text-muted-foreground">
         新しく家計簿を作るか、家族の家計簿に参加します。
       </p>
 
-      <section className="mt-8">
-        <h2 className="mb-4 text-sm font-medium text-muted">
-          新しく家計簿を作る
-        </h2>
-        <CreateHouseholdForm defaultDisplayName={me.displayName} />
-      </section>
+      <Card className="mt-7 [--card-spacing:--spacing(5)]">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <HousePlus className="size-4 text-muted-foreground" aria-hidden />
+            新しく家計簿を作る
+          </CardTitle>
+          <CardDescription>
+            はじめて使う方はこちら。あとから家族を招待できます。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CreateHouseholdForm defaultDisplayName={me.displayName} />
+        </CardContent>
+      </Card>
 
-      <div className="my-8 flex items-center gap-3 text-xs text-muted">
+      <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-border" />
         または
         <span className="h-px flex-1 bg-border" />
       </div>
 
-      <section>
-        <h2 className="mb-4 text-sm font-medium text-muted">
-          家族の家計簿に参加する
-        </h2>
-        <JoinHouseholdForm defaultDisplayName={me.displayName} />
-      </section>
+      <Card className="[--card-spacing:--spacing(5)]">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="size-4 text-muted-foreground" aria-hidden />
+            家族の家計簿に参加する
+          </CardTitle>
+          <CardDescription>
+            すでに家族が作っている場合は、招待コードを入力します。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <JoinHouseholdForm defaultDisplayName={me.displayName} />
+        </CardContent>
+      </Card>
     </main>
   );
 }

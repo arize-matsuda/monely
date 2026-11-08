@@ -1,33 +1,115 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * ダークモードの判定。
+ *
+ * shadcn の既定は `.dark` クラス（next-themes 前提）だが、このアプリは
+ * `data-theme` 属性 + `color-scheme` で切り替える（ADR 参照）。
+ * shadcn のコンポーネントが使う `dark:` ユーティリティを
+ * 私たちの仕組みに繋ぐため、変種を定義し直す。
+ *
+ *   data-theme なし  → OS の設定に従う
+ *   data-theme=light → OS がダークでもライト
+ *   data-theme=dark  → OS がライトでもダーク
+ */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(
+        :root:not([data-theme="light"]),
+        :root:not([data-theme="light"]) *
+      ) {
+      @slot;
+    }
+  }
+}
 
 /*
  * デザイントークン。docs/02-design/ui-ux-design.md が正。
- * コンポーネントに生の色値（#rrggbb）を書かず、必ずここ経由で使う。
- * コントラストは WCAG AA（本文 4.5:1）以上を満たす値を選んでいる（NFR-U6）。
  *
- * テーマの切り替え（システム / ライト / ダーク）:
- *   CSS の light-dark() に 1 箇所で両方の値を書き、
- *   実際どちらが使われるかは color-scheme が決める。
- *   こうするとトークンの定義が二重化せず、片方だけ直す事故が起きない。
- *   スクロールバーや <input type="date"> などのネイティブ UI も一緒に切り替わる。
+ * 命名は shadcn/ui に合わせる（--primary, --muted-foreground, --destructive …）。
+ * ライブラリ側の命名に寄せることで、コンポーネントを追加したときに
+ * そのまま馴染む。
+ *
+ * 値は CSS の light-dark() で 1 箇所に書く。
+ *   - トークンの定義が二重化しないので、片方だけ直す事故が起きない
+ *   - 切り替えは color-scheme だけ。`.dark` クラスを配る必要がない
+ *   - スクロールバーや <input type="date"> などのネイティブ UI も追従する
+ *
+ * コントラストは WCAG AA（本文 4.5:1）以上（NFR-U6）。
+ * 値を変えたら scripts/check-contrast.mjs で確認する。
  */
 :root {
   /* 既定は OS の設定に追従する */
   color-scheme: light dark;
 
-  /*                     ライト      ダーク   */
-  --background: light-dark(#f7f7f8, #09090b); /* ページ背景 */
-  --surface: light-dark(#ffffff, #18181b); /* カード・一覧の行 */
-  --foreground: light-dark(#18181b, #fafafa); /* 本文 */
-  --muted: light-dark(#52525b, #a1a1aa); /* 補助テキスト */
-  --border: light-dark(#e4e4e7, #27272a); /* 区切り線 */
-  --income: light-dark(#15803d, #4ade80); /* 収入 */
-  --danger: light-dark(#dc2626, #f87171); /* 差額マイナス・削除 */
+  /* モバイルでの指当たりを考えて、shadcn の既定より少し大きい */
+  --radius: 0.75rem;
 
-  /* アクセントは両モードで同じ値。near-black 上でも白文字が 6.2:1 を確保でき、
-     ボタン自体も背景に対して 3:1 を満たす */
-  --accent: #4f46e5;
-  --accent-foreground: #ffffff;
+  /*                              ライト                    ダーク */
+  --background: light-dark(oklch(0.985 0 0), oklch(0.145 0 0));
+  --foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+
+  --card: light-dark(oklch(1 0 0), oklch(0.205 0 0));
+  --card-foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+
+  --popover: light-dark(oklch(1 0 0), oklch(0.205 0 0));
+  --popover-foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+
+  /* 主要な操作。インディゴ。金額の数字と喧嘩しない彩度にしている。
+     ダーク側の明度は「白文字が 4.5:1 を超える」上限から決めた（L=0.555 で 4.91:1）*/
+  --primary: light-dark(oklch(0.512 0.226 277), oklch(0.555 0.218 277));
+  --primary-foreground: oklch(0.985 0 0);
+
+  --secondary: light-dark(oklch(0.968 0 0), oklch(0.269 0 0));
+  --secondary-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
+
+  /* muted は「背景」、muted-foreground が「補助テキスト」。shadcn の用法 */
+  --muted: light-dark(oklch(0.968 0 0), oklch(0.269 0 0));
+  --muted-foreground: light-dark(oklch(0.44 0 0), oklch(0.72 0 0));
+
+  /* accent は「ホバーの背景」。主要な操作の色ではない（shadcn の用法） */
+  --accent: light-dark(oklch(0.968 0 0), oklch(0.269 0 0));
+  --accent-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
+
+  /*
+   * 破壊的な操作。shadcn の nova プリセットは Button の destructive を
+   * 「薄い地色 + destructive の文字」で描くので、このトークンは
+   * **文字色として読める明るさ**でなければならない（暗い背景では明るく）。
+   *
+   * そのうえで `bg-destructive text-destructive-foreground` と塗られても
+   * AA を満たすよう、前景色をモードごとに反転させる。
+   * 白固定だとダークで 3.01:1 しか出ない（黒なら 6.29:1）。
+   */
+  --destructive: light-dark(oklch(0.52 0.206 27.3), oklch(0.68 0.19 22.2));
+  --destructive-foreground: light-dark(oklch(0.985 0 0), oklch(0.145 0 0));
+
+  --border: light-dark(oklch(0.922 0 0), oklch(1 0 0 / 12%));
+  --input: light-dark(oklch(0.922 0 0), oklch(1 0 0 / 16%));
+  --ring: light-dark(oklch(0.512 0.226 277), oklch(0.555 0.218 277));
+
+  /* --- Monely 固有。shadcn に相当するものが無いもの --- */
+
+  /* 金額の文字色。地色ではなく文字なので、暗い背景では明るくする必要がある。
+     支出は中立色（foreground）のままにする。
+     支出を赤にすると毎日のことなので一覧が警告だらけになる */
+  --income: light-dark(oklch(0.5 0.13 150), oklch(0.78 0.17 150));
+
+  /* 差額がマイナスのときの文字色。いまは --destructive と同値だが、
+     「お金の色」と「破壊的な操作の色」は役割が違うので分けておく。
+     削除ボタンの赤を調整したときに金額の色が連動して変わらないようにする */
+  --deficit: light-dark(oklch(0.52 0.206 27.3), oklch(0.68 0.19 22.2));
+
+  /* グラフ（v2 のカテゴリ別内訳で使う） */
+  --chart-1: light-dark(oklch(0.512 0.226 277), oklch(0.555 0.218 277));
+  --chart-2: light-dark(oklch(0.6 0.16 200), oklch(0.7 0.14 200));
+  --chart-3: light-dark(oklch(0.62 0.15 150), oklch(0.74 0.15 150));
+  --chart-4: light-dark(oklch(0.68 0.15 80), oklch(0.78 0.14 80));
+  --chart-5: light-dark(oklch(0.62 0.18 25), oklch(0.72 0.16 25));
 }
 
 /* 利用者が明示的に選んだ場合は OS の設定より優先する。
@@ -42,25 +124,54 @@
 
 @theme inline {
   --color-background: var(--background);
-  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
-  --color-border: var(--border);
+  --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-income: var(--income);
-  --color-danger: var(--danger);
+  --color-deficit: var(--deficit);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
-  /* Geist は英数字向けなので、日本語はシステムフォントに落とす */
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  /* Geist は英数字向けなので、日本語はシステムフォントに落とす。
+     --font-geist-sans は src/app/layout.tsx が next/font から渡す */
   --font-sans:
     var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Hiragino Sans",
     "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif;
+  --font-heading: var(--font-sans);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  /* iOS で横向きにしたときに文字が勝手に拡大されるのを防ぐ */
-  text-size-adjust: 100%;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    /* iOS で横向きにしたときに文字が勝手に拡大されるのを防ぐ */
+    text-size-adjust: 100%;
+  }
 }

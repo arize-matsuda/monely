@@ -66,7 +66,7 @@ export function SignUpForm() {
           required
         />
       </Field>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending ? "登録中…" : "アカウントを作る"}
       </Button>
     </form>

@@ -30,7 +30,7 @@
 | --- | --- |
 | **進行中のマイルストーン** | **M3（記録と一覧 = v1 の本体）** |
 | **次にやること** | M3-17〜20 受入条件の確認（**手作業**。実際に記録してみる） |
-| **方針変更** | 2026-11-07 認可をアプリ層へ（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）/ 2026-11-08 認証をメール+パスワードへ（[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）/ 同日 認証基盤を better-auth へ（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)） |
+| **方針変更** | 2026-11-07 認可をアプリ層へ（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）/ 2026-11-08 認証をメール+パスワードへ（[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）/ 同日 認証基盤を better-auth へ（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)）/ 同日 UI に shadcn/ui を採用（[ADR-0008](../05-decisions/ADR-0008-shadcn-ui.md)） |
 | **ブロッカー** | なし |
 
 ---
@@ -342,10 +342,18 @@ Next.js encountered uncached data during a navigation.
 - [x] M3-14 `/transactions/[id]` — 編集フォーム（`TransactionForm` を共有）（2026-11-08）
 - [x] M3-15 `/transactions/[id]` — 削除（確認付き）、見つからない表示（2026-11-08）
 - [x] M3-16 エラー表示（`useActionState` なので保存失敗でも入力が残る）（2026-11-08）
-- [ ] M3-17 受入条件 AC-4〜AC-8 を実施
 - [ ] M3-18 **受入条件 AC-9 を再実施**
 - [ ] M3-19 [テスト戦略 §4.3](../03-guidelines/testing-strategy.md#44-金額と日付の確認m3)（金額と日付の確認。**全角数字を含む**）
 - [ ] M3-20 入力速度の計測（10 秒 / 5 タップ以内）
+- [x] M3-23 **UI を shadcn/ui（Radix ベース）に載せ替え**（2026-11-08）
+  - [ADR-0008](../05-decisions/ADR-0008-shadcn-ui.md)。「シンプルすぎる」という評価を受けての対応
+  - `globals.css` を全面書き直し。トークンの命名を shadcn に合わせ、旧トークンは削除
+  - 生成: `button` / `card` / `input` / `label` / `badge` / `separator` / `collapsible` / `empty`
+  - 自前: `SegmentedControl`（種別・テーマ。中身は本物の radio）/ `field` を `Label`+`Input` の上に載せ替え
+  - **`Button` と `Input` の高さを 44px に上げた**（shadcn の既定は `h-8`。NFR-U7 違反だった）
+  - `scripts/check-contrast.mjs`（`pnpm check:contrast`）を追加。**AA 落ちを 2 件検出して修正**
+  - アイコンは lucide。全画面に適用（ホーム / 記録 / 編集 / 設定 / 認証 / セットアップ）
+- [ ] M3-17 受入条件 AC-4〜AC-8 を実施（**shadcn 化で UI が変わったので、ここから実施する**）
 - [ ] M3-21 `pnpm lint` / `pnpm build` / **`pnpm test`** を通してコミット
 - [ ] **M3-22 v1 完成の確認。使い始める**
 
@@ -428,6 +436,7 @@ Next.js encountered the unstable value new Date() while prerendering.
 - [ ] M4-8 カテゴリの並びを直近 30 日の使用頻度順に
 - [ ] M4-9 日付の「今日 / 昨日」ショートカット
 - [ ] M4-10 タップ領域・コントラスト・フォーカス表示の調整
+  - **一部は M3-23 で済んだ**（44px、`pnpm check:contrast`、`focus-visible` のリング）。残りは実機での確認
 - [ ] M4-11 保存中の状態表示
 - [ ] M4-12 受入条件 AC-10, AC-12 を実施
 - [ ] M4-13 実機（iPhone）での確認

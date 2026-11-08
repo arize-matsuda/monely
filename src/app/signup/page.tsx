@@ -22,7 +22,7 @@ export default function SignUpPage() {
         ので、待っても届かない状態になりうる。その旨を先に伝えておく。
         → docs/05-decisions/ADR-0006-email-password-auth.md
       */}
-      <p className="mt-6 text-xs leading-relaxed text-muted">
+      <p className="text-xs leading-relaxed text-muted-foreground">
         すでに登録済みのメールアドレスの場合、確認メールは届きません。
         <AuthLink href="/login">ログイン</AuthLink>をお試しください。
         パスワードが分からない場合は

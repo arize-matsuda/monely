@@ -78,6 +78,7 @@
 | [**ADR-0005**](./05-decisions/ADR-0005-authorization-in-app-layer.md) | **認可をアプリ層に置き、Prisma を採用する**（ADR-0002 を置き換え） | 採用 |
 | [ADR-0006](./05-decisions/ADR-0006-email-password-auth.md) | 認証をメール + パスワードにする（マジックリンクは再設定用に残す） | 採用 |
 | [**ADR-0007**](./05-decisions/ADR-0007-better-auth.md) | **認証基盤を Supabase Auth から better-auth に移す** | 採用 |
+| [ADR-0008](./05-decisions/ADR-0008-shadcn-ui.md) | UI コンポーネントに shadcn/ui（Radix ベース）を採用する | 採用 |
 
 ---
 

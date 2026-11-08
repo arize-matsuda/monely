@@ -1,7 +1,17 @@
+import { ArrowLeft, SearchX } from "lucide-react";
 import Link from "next/link";
 import { updateTransaction } from "@/actions/transactions";
 import { DeleteTransaction } from "@/components/delete-transaction";
 import { TransactionForm } from "@/components/transaction-form";
+import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { listMembers } from "@/lib/data/household";
 import { getTransaction, listCategories } from "@/lib/data/transactions";
 import { toDateKey } from "@/lib/month";
@@ -31,18 +41,25 @@ export default async function EditTransactionPage({
   if (!transaction) {
     return (
       <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-10">
-        <h1 className="text-lg font-semibold tracking-tight">
-          見つかりませんでした
-        </h1>
-        <p className="mt-2 text-sm text-muted">
-          この記録は削除されたか、表示する権限がありません。
-        </p>
-        <Link
-          href="/"
-          className="mt-6 flex h-12 items-center justify-center rounded-xl border border-border bg-surface text-base"
-        >
-          ホームに戻る
-        </Link>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <SearchX aria-hidden />
+            </EmptyMedia>
+            <EmptyTitle>見つかりませんでした</EmptyTitle>
+            <EmptyDescription>
+              この記録は削除されたか、表示する権限がありません。
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button asChild variant="outline">
+              <Link href="/">
+                <ArrowLeft aria-hidden />
+                ホームに戻る
+              </Link>
+            </Button>
+          </EmptyContent>
+        </Empty>
       </main>
     );
   }
@@ -54,7 +71,9 @@ export default async function EditTransactionPage({
 
   return (
     <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-6">
-      <h1 className="mb-6 text-lg font-semibold tracking-tight">記録の編集</h1>
+      <h1 className="mb-5 font-heading text-xl font-semibold tracking-tight">
+        記録の編集
+      </h1>
       <TransactionForm
         action={updateTransaction}
         categories={[...expense, ...income]}

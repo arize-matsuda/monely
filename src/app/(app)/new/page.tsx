@@ -28,7 +28,9 @@ export default async function NewTransactionPage() {
 
   return (
     <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-6">
-      <h1 className="mb-6 text-lg font-semibold tracking-tight">記録する</h1>
+      <h1 className="mb-5 font-heading text-xl font-semibold tracking-tight">
+        記録する
+      </h1>
       <TransactionForm
         action={createTransaction}
         categories={[...expense, ...income]}

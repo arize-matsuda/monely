@@ -1,7 +1,17 @@
+import { ArrowLeft, Home, KeyRound, Palette, Users } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "@/actions/auth";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { requireMember } from "@/lib/auth";
 import { getMyHousehold, listMembers } from "@/lib/data/household";
 import { PasswordForm } from "./password-form";
@@ -29,70 +39,111 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-10">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">設定</h1>
-        <Link
-          href="/"
-          className="text-sm text-accent underline underline-offset-4"
-        >
-          ホーム
-        </Link>
+    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 px-4 py-8">
+      <div className="flex items-center justify-between">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">
+          設定
+        </h1>
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/">
+            <ArrowLeft aria-hidden />
+            ホーム
+          </Link>
+        </Button>
       </div>
 
-      <section className="mt-8 rounded-xl border border-border bg-surface p-4">
-        <h2 className="text-sm font-medium text-muted">わが家</h2>
-        <p className="mt-2 text-base">{household?.name}</p>
-        <h3 className="mt-4 text-sm font-medium text-muted">招待コード</h3>
-        <p className="mt-1 font-mono text-2xl tracking-[0.2em]">
-          {household?.inviteCode}
-        </p>
-        <p className="mt-2 text-xs leading-relaxed text-muted">
-          このコードを家族に伝えると、同じ家計簿に参加できます。
-          パスワードと同じ扱いで共有してください。
-        </p>
-        <h3 className="mt-4 text-sm font-medium text-muted">メンバー</h3>
-        <ul className="mt-1 flex flex-col gap-1 text-sm">
-          {members.map((member) => (
-            <li key={member.id}>
-              {member.displayName}
-              {member.id === me.profileId ? (
-                <span className="text-muted">（あなた）</span>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="mt-4 rounded-xl border border-border bg-surface p-4">
-        <h2 className="text-sm font-medium text-muted">あなた</h2>
-        <dl className="mt-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-muted">表示名</dt>
-            <dd>{me.displayName}</dd>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Home className="size-4 text-muted-foreground" aria-hidden />
+            わが家
+          </CardTitle>
+          <CardDescription>{household?.name}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div>
+            <p className="text-sm font-medium">招待コード</p>
+            <p className="mt-1 font-mono text-2xl tracking-[0.2em]">
+              {household?.inviteCode}
+            </p>
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+              このコードを家族に伝えると、同じ家計簿に参加できます。
+              パスワードと同じ扱いで共有してください。
+            </p>
           </div>
-          <div className="mt-1 flex justify-between gap-4">
-            <dt className="text-muted">メール</dt>
-            <dd className="truncate">{me.email}</dd>
+
+          <Separator />
+
+          <div>
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Users className="size-4 text-muted-foreground" aria-hidden />
+              メンバー
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {members.map((member) => (
+                <li key={member.id}>
+                  <Badge
+                    variant={
+                      member.id === me.profileId ? "default" : "secondary"
+                    }
+                  >
+                    {member.displayName}
+                    {member.id === me.profileId ? "（あなた）" : null}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
           </div>
-        </dl>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="mt-4 rounded-xl border border-border bg-surface p-4">
-        <h2 className="mb-3 text-sm font-medium text-muted">表示テーマ</h2>
-        <ThemeToggle />
-        <p className="mt-2 text-xs text-muted">
-          「システム」は端末の設定に合わせます。この端末にだけ保存されます。
-        </p>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>あなた</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="flex flex-col gap-2 text-sm">
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">表示名</dt>
+              <dd>{me.displayName}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">メール</dt>
+              <dd className="truncate">{me.email}</dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
 
-      <section className="mt-4 rounded-xl border border-border bg-surface p-4">
-        <h2 className="mb-4 text-sm font-medium text-muted">パスワード</h2>
-        <PasswordForm />
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="size-4 text-muted-foreground" aria-hidden />
+            表示テーマ
+          </CardTitle>
+          <CardDescription>
+            「システム」は端末の設定に合わせます。この端末にだけ保存されます。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeToggle />
+        </CardContent>
+      </Card>
 
-      <form action={signOut} className="mt-8">
-        <Button type="submit" variant="secondary">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="size-4 text-muted-foreground" aria-hidden />
+            パスワード
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PasswordForm />
+        </CardContent>
+      </Card>
+
+      <form action={signOut} className="mt-2">
+        <Button type="submit" variant="outline" className="w-full">
           ログアウト
         </Button>
       </form>

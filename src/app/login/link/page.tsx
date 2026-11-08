@@ -19,7 +19,7 @@ export default function MagicLinkPage() {
         </p>
       }
     >
-      <p className="mb-4 text-sm leading-relaxed text-muted">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         パスワードを忘れた場合はこちらから。メールに届いたリンクを開くと、
         パスワードなしでログインできます。
       </p>

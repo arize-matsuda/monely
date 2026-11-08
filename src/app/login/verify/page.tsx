@@ -17,7 +17,7 @@ export default function VerifyPage() {
         </p>
       }
     >
-      <p className="mb-4 text-sm leading-relaxed text-muted">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         登録したメールアドレスを入力すると、確認用のリンクを送り直します。
       </p>
       <ResendForm />

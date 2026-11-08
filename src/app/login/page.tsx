@@ -1,3 +1,4 @@
+import { CircleAlert } from "lucide-react";
 import { Suspense } from "react";
 import { AuthLink, AuthShell } from "@/components/ui/auth-shell";
 import { LoginForm } from "./login-form";
@@ -52,9 +53,10 @@ async function LinkNotice({
   // （確認リンクの場合、メールアドレスの確認自体は Supabase 側で完了している）
   return (
     <p
-      className="mb-4 rounded-xl border border-danger/40 bg-danger/10 px-3.5 py-3 text-sm leading-relaxed text-danger"
+      className="flex items-start gap-2 rounded-xl bg-destructive/10 px-3.5 py-3 text-sm leading-relaxed text-destructive ring-1 ring-destructive/25"
       role="alert"
     >
+      <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
       リンクからログインできませんでした。期限切れか、別のブラウザで開いた可能性があります。
       パスワードでログインするか、もう一度お試しください。
     </p>

@@ -1,5 +1,6 @@
 "use client";
 
+import { CircleCheck } from "lucide-react";
 import { useActionState } from "react";
 import { updatePassword } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,8 @@ export function PasswordForm() {
   return (
     <form action={action} className="flex flex-col gap-4">
       {state?.ok ? (
-        <p className="rounded-xl border border-income/40 bg-income/10 px-3.5 py-3 text-sm text-income">
+        <p className="flex items-start gap-2 rounded-xl bg-income/10 px-3.5 py-3 text-sm leading-relaxed text-income ring-1 ring-income/25">
+          <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
           パスワードを変更しました。次回からこのパスワードでログインできます。
         </p>
       ) : null}
@@ -47,7 +49,7 @@ export function PasswordForm() {
           required
         />
       </Field>
-      <Button type="submit" disabled={pending}>
+      <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "変更中…" : "パスワードを変更する"}
       </Button>
     </form>

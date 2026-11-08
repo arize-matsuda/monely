@@ -234,11 +234,35 @@ grep -rn "new Date()\|Date.now()" src --include="*.ts" --include="*.tsx" \
 - Tailwind CSS v4。ユーティリティクラスを直接書く。CSS ファイルを増やさない。
 - **色は CSS 変数（デザイントークン）経由で使う。** `bg-[#10b981]` のような生の色値をコンポーネントに書かない。
 - **トークンは `light-dark()` で 1 箇所に書く。** ライト用とダーク用を別ブロックに分けない（片方だけ直す事故を防ぐ）。
-- トークンの定義は `src/app/globals.css` の `:root` と `@theme`。ライト / ダークで値を差し替える。
+- トークンの定義は `src/app/globals.css` の `:root` と `@theme inline`。
 - 余白・文字サイズは Tailwind の既定スケールを使う。独自の値（`p-[13px]`）を作らない。
 - クラス名が長くなっても、条件分岐のない限り変数に逃がさない（検索性を保つ）。
+- 条件でクラスを足すときは `cn()`（`@/lib/utils`）を使う。テンプレート文字列での結合はしない（後勝ちの衝突を解決できない）。
+- **色を変えたら `pnpm check:contrast` を実行する。** WCAG AA（4.5:1、NFR-U6）の確認。目視では落ちているものに気づけない。
 
 トークン一覧 → [UI/UX設計 §6.4](../02-design/ui-ux-design.md#64-デザイントークン)
+
+### 9.1 間違いやすいトークン
+
+命名を shadcn/ui に合わせたので、**以前のこのプロジェクトでの意味とは違う**ものがある。
+
+| 書きたいこと | 正しい | 間違い |
+| --- | --- | --- |
+| 補助テキスト（メモ、ラベル） | `text-muted-foreground` | ~~`text-muted`~~（背景色になる） |
+| カード・行の背景 | `bg-card` | ~~`bg-surface`~~（削除済み） |
+| 主要ボタン・選択状態 | `bg-primary text-primary-foreground` | ~~`bg-accent`~~（`accent` はホバーの背景） |
+| 削除・エラー | `text-destructive` / `bg-destructive/10` | ~~`text-danger`~~（削除済み） |
+| 差額がマイナスの金額 | `text-deficit` | `text-destructive`（役割が別。ADR-0008） |
+
+### 9.2 `src/components/ui/` の扱い
+
+shadcn/ui が生成したファイル（`button.tsx` など）は **npm の依存ではなく、このリポジトリのコード**。必要なら編集する。ただし次を守る。
+
+- **タップ対象は 44px 以上**（NFR-U7）。shadcn の既定は `h-8` などで小さい。生成したら高さを確認する
+- 生成後に編集したファイルは、`shadcn add` で**上書きされうる**。同名のコンポーネントを再生成するときは `git diff` で意図した改変が消えていないか見る
+- 使わなかった生成物は削除する（`select.tsx` などを放置しない）
+
+コンポーネントを足すとき → `pnpm dlx shadcn@4.23.0 add <name>`。**新しい npm 依存が増える場合だけ ADR を書く**（→ [ADR-0008](../05-decisions/ADR-0008-shadcn-ui.md)）。
 
 ---
 
@@ -286,11 +310,13 @@ try { ... } catch { }
 | 入れない | 数十行の自作で足りる。UI ライブラリで見た目を揃えたいだけ |
 | 必須 | 追加する場合は [ADR](../05-decisions/) を 1 本書く |
 
-現在の依存: `next`, `react`, `react-dom`, `better-auth`, `@prisma/client`, `@prisma/adapter-pg`, `pg`（+ dev の Biome / Tailwind / TypeScript / `prisma` / `dotenv` / `@types/pg` / Vitest）。
+現在の依存: `next`, `react`, `react-dom`, `better-auth`, `@prisma/client`, `@prisma/adapter-pg`, `pg`, `radix-ui`, `lucide-react`, `class-variance-authority`, `cn`, `tw-animate-css`（+ dev の Biome / Tailwind / TypeScript / `prisma` / `dotenv` / `@types/pg` / Vitest / `shadcn`）。
 
 **メール送信にパッケージを追加していない**（Resend の REST API を `fetch` で叩く）。
 
-追加理由 → Prisma: [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) / better-auth: [ADR-0007](../05-decisions/ADR-0007-better-auth.md)
+追加理由 → Prisma: [ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) / better-auth: [ADR-0007](../05-decisions/ADR-0007-better-auth.md) / UI の 5 つ: [ADR-0008](../05-decisions/ADR-0008-shadcn-ui.md)
+
+**npm の `latest` タグを信用しない。** RC を指していることがある（Prisma の `latest` は 8.x の RC）。`pnpm view <pkg> version time.modified` と週間 DL を見てから入れる。この基準で Auth.js v5（3 年 beta）と Base UI（RC のまま 4 か月停止）を却下した。
 
 ---
 
@@ -308,6 +334,9 @@ try { ... } catch { }
 - [ ] クライアントから受け取った `householdId` / `createdById` を DB に書いていない
 - [ ] 金額に浮動小数点の演算を使っていない
 - [ ] 生の色値（`#rrggbb`）をコンポーネントに書いていない
+- [ ] 削除したトークン（`surface` / `danger` / 文字色としての `muted` / 主要色としての `accent`）を使っていない
+- [ ] 色を変えたなら `pnpm check:contrast` が通っている
+- [ ] タップ対象が 44px 以上ある（NFR-U7）
 - [ ] `catch {}` で理由なく例外を捨てていない
 - [ ] `console.log` を残していない（`console.error` は可）
 - [ ] 用語集に無い新しい言葉を使っていない

@@ -1,6 +1,9 @@
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { formatAmount } from "@/lib/money";
 import type { Kind } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type Props = {
   id: string;
@@ -23,26 +26,39 @@ export function TransactionRow({
   categoryName,
   paidByName,
 }: Props) {
-  const sub = [memo, paidByName].filter(Boolean).join("・");
-
   return (
     <Link
       href={`/transactions/${id}`}
-      className="flex min-h-[56px] items-center justify-between gap-3 px-4 py-2.5 transition-colors hover:bg-background"
+      className="group flex min-h-[60px] items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/60"
     >
-      <span className="min-w-0">
-        <span className="block truncate text-base">
-          {categoryName ?? <span className="text-muted">未分類</span>}
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="flex items-center gap-2">
+          <Badge variant={categoryName ? "secondary" : "outline"}>
+            {categoryName ?? "未分類"}
+          </Badge>
+          {paidByName ? (
+            <span className="truncate text-xs text-muted-foreground">
+              {paidByName}
+            </span>
+          ) : null}
         </span>
-        {sub ? (
-          <span className="block truncate text-xs text-muted">{sub}</span>
+        {memo ? (
+          <span className="truncate text-sm text-muted-foreground">{memo}</span>
         ) : null}
       </span>
+
       <span
-        className={`shrink-0 tabular-nums ${kind === "income" ? "text-income" : ""}`}
+        className={cn(
+          "shrink-0 text-base font-medium tabular-nums",
+          kind === "income" && "text-income",
+        )}
       >
         {formatAmount(amount, kind)}
       </span>
+      <ChevronRight
+        className="size-4 shrink-0 text-muted-foreground/60 transition-colors group-hover:text-muted-foreground"
+        aria-hidden
+      />
     </Link>
   );
 }

@@ -39,7 +39,13 @@ export function ResendForm() {
           placeholder="you@example.com"
         />
       </Field>
-      <Button type="submit" variant="secondary" disabled={pending}>
+      <Button
+        type="submit"
+        variant="secondary"
+        size="lg"
+        className="w-full"
+        disabled={pending}
+      >
         {pending ? "送信中…" : "確認メールを再送する"}
       </Button>
     </form>

@@ -360,9 +360,10 @@ M3 では `sort_order` 順で出し、M4 で使用頻度順に差し替える。
 | --- | --- |
 | 支出 | **中立色（本文色）。赤にしない。** 支出は毎日のことで、赤だと一覧が警告だらけになる |
 | 収入 | 緑系 + `+` 記号 |
-| 差額マイナス | 赤系 |
-| 破壊的操作（削除） | 赤系 |
-| 選択中の種別タブ | アクセント色の背景 |
+| 差額マイナス | 赤系（`--deficit`） |
+| 破壊的操作（削除） | 赤系（`--destructive`） |
+| 選択中の種別タブ | カードの色で浮かせる（地の `--muted` から持ち上げる） |
+| 選択中のカテゴリ | `--primary` の背景 + チェックのアイコン |
 
 ### 6.3.1 テーマの切り替え（システム / ライト / ダーク）
 
@@ -403,21 +404,41 @@ M3 では `sort_order` 順で出し、M4 で使用頻度順に差し替える。
 
 色は CSS 変数（`globals.css` の `:root`）で定義する。**コンポーネントに生の色値を書かない。**
 
+値は `light-dark()` で 1 箇所に書く。**`.dark` クラスで上書きする方式は使わない**（→ [ADR-0008](../05-decisions/ADR-0008-shadcn-ui.md)）。shadcn のコンポーネントが使う `dark:` ユーティリティは、`globals.css` の `@custom-variant dark` で `data-theme` 属性に繋いである。
+
 ### 6.4 デザイントークン
 
-`src/app/globals.css` に定義し、Tailwind の `@theme` から参照する。
+`src/app/globals.css` に定義し、Tailwind の `@theme inline` から参照する。
+**命名は shadcn/ui に合わせる**（→ [ADR-0008](../05-decisions/ADR-0008-shadcn-ui.md)）。
 
-| トークン | 用途 |
-| --- | --- |
-| `--color-background` / `--color-foreground` | 背景・本文 |
-| `--color-surface` | カード・行の背景 |
-| `--color-border` | 区切り線 |
-| `--color-muted` | 補助テキスト（メモ、支払った人） |
-| `--color-accent` | 主要ボタン、選択状態 |
-| `--color-income` | 収入 |
-| `--color-danger` | 差額マイナス、削除 |
+| トークン | 用途 | 間違いやすい点 |
+| --- | --- | --- |
+| `--background` / `--foreground` | ページの背景・本文 | |
+| `--card` / `--card-foreground` | カード・行の背景 | 旧 `--surface` |
+| `--popover` / `--popover-foreground` | 重ねて出すもの | |
+| `--primary` / `--primary-foreground` | 主要ボタン、選択状態 | 旧 `--accent` |
+| `--secondary` / `--secondary-foreground` | 副ボタン | |
+| `--muted` | **背景色**（セグメントの地、淡い帯） | **旧 `--muted` は文字色だった。意味が逆** |
+| `--muted-foreground` | **補助テキスト**（メモ、支払った人、ラベル） | 旧 `--muted` の役割 |
+| `--accent` / `--accent-foreground` | **ホバー時の背景**。主要な操作の色ではない | **旧 `--accent` は主要色だった。意味が違う** |
+| `--destructive` / `--destructive-foreground` | 破壊的操作、エラー | 旧 `--danger`。`-foreground` はモードで反転する |
+| `--border` / `--input` / `--ring` | 区切り線、入力欄の枠、フォーカスリング | |
+| `--income` | 収入、成功の通知 | Monely 固有 |
+| `--deficit` | 差額がマイナスのときの金額 | Monely 固有。`--destructive` とは役割が別 |
+| `--chart-1`〜`5` | グラフ（v2） | |
+| `--radius` | 角丸の基準（0.75rem） | shadcn の既定より大きい |
+
+**旧トークン（`--surface` / `--danger` / 旧 `--muted` / 旧 `--accent`）は削除した。** 同じ名前で意味が違うものを残すと、見つけにくい崩れを生む。
 
 余白は Tailwind の既定スケールを使う（独自に定義しない）。文字サイズは本文 16px を基準にし、金額の表示だけ大きくする。
+
+#### コントラストの検証
+
+```bash
+pnpm check:contrast
+```
+
+`globals.css` の `light-dark()` を読み、oklch → sRGB に変換して、文字色と背景色の組み合わせをライト / ダークの両方で判定する（WCAG AA = 4.5:1、NFR-U6）。**色を変えたら必ず実行する。** 目視では落ちているものに気づけない（実際に 2 件見逃していた → [ADR-0008](../05-decisions/ADR-0008-shadcn-ui.md)）。
 
 ### 6.5 エラー表示
 
@@ -460,22 +481,34 @@ M3 では `sort_order` 順で出し、M4 で使用頻度順に差し替える。
 
 ## 9. コンポーネント構成（想定）
 
-| コンポーネント | 置き場所 | 種類 |
-| --- | --- | --- |
-| `AuthShell` | `components/ui/` | Server（`/login`, `/signup`, `/login/link` の共通枠） |
-| `BottomTabs` | `components/` | Server |
-| `MonthSwitcher` | `components/` | Server（Link で遷移） |
-| `MonthSummary` | `components/` | Server |
-| `TransactionRow` | `components/` | Server |
-| `AmountInput` | `components/` | **Client**（入力状態を持つ） |
-| `KindTabs` | `components/` | **Client**（選択状態を持つ） |
-| `CategoryPicker` | `components/` | **Client** |
-| `Button` / `Field` / `TextInput` / `FormError` | `components/ui/` | Server（汎用） |
-| `ThemeToggle` | `components/theme/` | **Client**（localStorage を読む） |
-| `ThemeScript` | `components/theme/` | Server（`<head>` のインラインスクリプト） |
-| `DeleteButton` | `components/` | **Client**（確認ダイアログ） |
+基盤は **shadcn/ui（Radix ベース）**。→ [ADR-0008](../05-decisions/ADR-0008-shadcn-ui.md)
+
+#### shadcn が生成したもの（`components/ui/`）
+
+`button` / `card` / `input` / `label` / `badge` / `separator` / `collapsible` / `empty`
+
+**生成されたコードはこのリポジトリのもの**で、npm の依存ではない。遠慮なく編集する。
+実際に `button` と `input` は高さを 44px に上げてある（NFR-U7）。
+
+#### 自前のもの
+
+| コンポーネント | 置き場所 | 種類 | 備考 |
+| --- | --- | --- | --- |
+| `AuthShell` / `AuthLink` / `MailSentNotice` | `components/ui/` | Server | `/login`, `/signup`, `/login/link` の共通枠 |
+| `Field` / `TextInput` / `SelectInput` / `FormError` | `components/ui/` | Server | shadcn の `Label` / `Input` の上に乗せた薄い層 |
+| `SegmentedControl` | `components/ui/` | **Client** | 種別・テーマの切り替え。**中身は本物の radio**（Radix の ToggleGroup を使わない理由は ADR-0008） |
+| `MonthSwitcher` | `components/` | Server | Link で遷移 |
+| `MonthSummary` | `components/` | Server | |
+| `TransactionList` / `TransactionRow` | `components/` | Server | |
+| `EmptyMonth` | `components/` | Server | shadcn の `Empty` を使う |
+| `TransactionForm` | `components/` | **Client** | 金額・種別・カテゴリの状態を持つ |
+| `DeleteTransaction` | `components/` | **Client** | 確認を自前の状態で出す（ダイアログを使わない） |
+| `ThemeToggle` | `components/theme/` | **Client** | localStorage を読む |
+| `ThemeScript` | `components/theme/` | Server | `<head>` のインラインスクリプト |
 
 **既定は Server Component。** 操作の状態を持つものだけ `"use client"` にする（→ [アーキテクチャ §3.2](./architecture.md#32-server--client-の境界)）。
+
+アイコンは **lucide-react**。装飾のアイコンには `aria-hidden` を付け、アイコンだけのボタンには `aria-label` を付ける。
 
 ---
 
@@ -485,7 +518,7 @@ M3 では `sort_order` 順で出し、M4 で使用頻度順に差し替える。
 | --- | --- |
 | スプラッシュ画面 | PWA の起動が速いので不要 |
 | オンボーディングのチュートリアル | 画面が 7 つで、説明が必要なほど複雑でない |
-| トースト通知 | 画面遷移で結果が分かる。仕組みを足す価値が薄い |
+| トースト通知 | 画面遷移で結果が分かる。仕組みを足す価値が薄い（必要になれば `shadcn add sonner`） |
 | スワイプ削除 | 誤操作のリスク。編集画面からの削除で足りる |
 | 無限スクロール | 1 か月単位の表示なので件数が収まる |
 | グラフ | v1 のスコープ外（合計の数字で足りる） |

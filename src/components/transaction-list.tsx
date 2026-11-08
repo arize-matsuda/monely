@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card";
 import type { TransactionRow as Row } from "@/lib/data/transactions";
 import { formatYen } from "@/lib/money";
 import { formatDateLabel } from "@/lib/month";
@@ -22,31 +23,35 @@ export function TransactionList({
   const groups = groupByDate(rows);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       {groups.map((group) => (
         <section key={group.dateKey}>
-          <h2 className="flex items-baseline justify-between px-1 pb-1.5 text-sm text-muted">
-            <span>{formatDateLabel(group.date, today)}</span>
+          <h2 className="flex items-baseline justify-between px-1 pb-2 text-sm">
+            <span className="font-medium">
+              {formatDateLabel(group.date, today)}
+            </span>
             {group.expenseTotal > 0 ? (
-              <span className="tabular-nums">
+              <span className="tabular-nums text-muted-foreground">
                 {formatYen(group.expenseTotal)}
               </span>
             ) : null}
           </h2>
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-            {group.rows.map((row) => (
-              <li key={row.id}>
-                <TransactionRow
-                  id={row.id}
-                  kind={row.kind}
-                  amount={row.amount}
-                  memo={row.memo}
-                  categoryName={row.category?.name ?? null}
-                  paidByName={row.paidBy?.displayName ?? null}
-                />
-              </li>
-            ))}
-          </ul>
+          <Card className="[--card-spacing:--spacing(1)]">
+            <ul className="divide-y divide-border">
+              {group.rows.map((row) => (
+                <li key={row.id}>
+                  <TransactionRow
+                    id={row.id}
+                    kind={row.kind}
+                    amount={row.amount}
+                    memo={row.memo}
+                    categoryName={row.category?.name ?? null}
+                    paidByName={row.paidBy?.displayName ?? null}
+                  />
+                </li>
+              ))}
+            </ul>
+          </Card>
         </section>
       ))}
     </div>

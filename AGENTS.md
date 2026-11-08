@@ -74,6 +74,7 @@ pnpm lint         # Biome。違反 0 であること
 pnpm build        # 型エラー・ビルドエラー 0 であること
 pnpm test         # Vitest。全件通ること（M3 以降）
 pnpm format       # 整形
+pnpm check:contrast  # 配色の WCAG AA 判定。**色を変えたら実行する**
 
 pnpm db:generate  # Prisma Client を生成（schema.prisma を変えたら実行）
 pnpm db:migrate   # マイグレーションを作る
@@ -82,6 +83,10 @@ pnpm db:status    # 適用状況を確認する
 ```
 
 ESLint も Prettier も入っていない。**Biome だけを使う。**
+
+UI は **shadcn/ui（Radix ベース）**。`src/components/ui/` の生成物は**このリポジトリのコード**で、編集してよい（`button` / `input` は高さを 44px に上げてある）。
+**トークン名は shadcn 準拠で、旧い名前とは意味が違う**: 補助テキストは `text-muted-foreground`（`text-muted` は背景色）、主要色は `primary`（`accent` はホバー）。`surface` / `danger` は無い。
+→ `docs/05-decisions/ADR-0008-shadcn-ui.md`、`docs/03-guidelines/coding-standards.md` §9.1
 
 スキーマの正は `prisma/schema.prisma`。**CHECK 制約は Prisma schema に書けない**ので、マイグレーションの SQL に手書きする。
 

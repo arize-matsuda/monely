@@ -1,7 +1,9 @@
 "use client";
 
+import { CircleAlert, Trash2 } from "lucide-react";
 import { useActionState, useState } from "react";
 import { deleteTransaction } from "@/actions/transactions";
+import { Button } from "@/components/ui/button";
 import { formErrorOf } from "@/components/ui/form-state";
 
 /**
@@ -15,43 +17,54 @@ export function DeleteTransaction({ id }: { id: string }) {
 
   if (!confirming) {
     return (
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => setConfirming(true)}
-        className="flex h-11 items-center justify-center text-sm text-danger"
+        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
       >
+        <Trash2 aria-hidden />
         この記録を削除
-      </button>
+      </Button>
     );
   }
 
   return (
     <form
       action={action}
-      className="flex flex-col gap-3 rounded-xl border border-danger/40 bg-danger/10 p-4"
+      className="flex flex-col gap-3 rounded-xl bg-destructive/10 p-4 ring-1 ring-destructive/25"
     >
       <input type="hidden" name="id" value={id} />
-      <p className="text-sm">この記録を削除します。元に戻せません。</p>
+      <p className="flex items-start gap-2 text-sm leading-relaxed">
+        <CircleAlert
+          className="mt-0.5 size-4 shrink-0 text-destructive"
+          aria-hidden
+        />
+        この記録を削除します。元に戻せません。
+      </p>
       {formErrorOf(state) ? (
-        <p className="text-sm text-danger" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {formErrorOf(state)}
         </p>
       ) : null}
       <div className="flex gap-3">
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => setConfirming(false)}
-          className="flex h-11 flex-1 items-center justify-center rounded-xl border border-border bg-surface text-sm"
+          className="flex-1"
         >
           やめる
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
+          variant="destructive"
           disabled={pending}
-          className="flex h-11 flex-1 items-center justify-center rounded-xl bg-danger text-sm font-medium text-white disabled:opacity-50"
+          className="flex-1"
         >
+          <Trash2 aria-hidden />
           {pending ? "削除中…" : "削除する"}
-        </button>
+        </Button>
       </div>
     </form>
   );

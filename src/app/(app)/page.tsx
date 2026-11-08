@@ -1,8 +1,10 @@
+import { Plus, Settings } from "lucide-react";
 import Link from "next/link";
 import { EmptyMonth } from "@/components/empty-month";
 import { MonthSummary } from "@/components/month-summary";
 import { MonthSwitcher } from "@/components/month-switcher";
 import { TransactionList } from "@/components/transaction-list";
+import { Button } from "@/components/ui/button";
 import { requestNow } from "@/lib/clock";
 import { listTransactionsByMonth } from "@/lib/data/transactions";
 import { summarize } from "@/lib/money";
@@ -47,20 +49,19 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       </div>
 
       {/* M4 で下部タブに置き換える。それまでは画面下の固定ボタン */}
-      <div className="fixed inset-x-0 bottom-0 border-t border-border bg-surface/95 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[480px] items-center gap-3 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <Link
-            href="/new"
-            className="flex h-12 flex-1 items-center justify-center rounded-xl bg-accent text-base font-medium text-accent-foreground transition-opacity hover:opacity-90"
-          >
-            記録する
-          </Link>
-          <Link
-            href="/settings"
-            className="flex h-12 items-center justify-center rounded-xl border border-border px-5 text-sm text-muted transition-colors hover:text-foreground"
-          >
-            設定
-          </Link>
+          <Button asChild size="lg" className="flex-1">
+            <Link href="/new">
+              <Plus aria-hidden />
+              記録する
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="icon-lg">
+            <Link href="/settings" aria-label="設定">
+              <Settings aria-hidden />
+            </Link>
+          </Button>
         </div>
       </div>
     </main>

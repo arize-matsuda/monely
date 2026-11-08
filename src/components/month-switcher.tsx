@@ -1,4 +1,6 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { formatMonth, type Month, nextMonth, prevMonth } from "@/lib/month";
 
 /**
@@ -8,36 +10,22 @@ import { formatMonth, type Month, nextMonth, prevMonth } from "@/lib/month";
  */
 export function MonthSwitcher({ month }: { month: Month }) {
   return (
-    <div className="flex items-center justify-between">
-      <MonthLink month={prevMonth(month)} label="前の月へ">
-        ‹
-      </MonthLink>
-      <h1 className="text-lg font-semibold tracking-tight tabular-nums">
+    <div className="flex items-center justify-between gap-2">
+      <Button asChild variant="ghost" size="icon">
+        <Link href={`/?m=${prevMonth(month)}`} aria-label="前の月へ">
+          <ChevronLeft aria-hidden />
+        </Link>
+      </Button>
+
+      <h1 className="font-heading text-lg font-semibold tracking-tight tabular-nums">
         {formatMonth(month)}
       </h1>
-      <MonthLink month={nextMonth(month)} label="次の月へ">
-        ›
-      </MonthLink>
-    </div>
-  );
-}
 
-function MonthLink({
-  month,
-  label,
-  children,
-}: {
-  month: Month;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={`/?m=${month}`}
-      aria-label={label}
-      className="flex size-11 items-center justify-center rounded-lg text-2xl text-muted transition-colors hover:bg-surface hover:text-foreground"
-    >
-      {children}
-    </Link>
+      <Button asChild variant="ghost" size="icon">
+        <Link href={`/?m=${nextMonth(month)}`} aria-label="次の月へ">
+          <ChevronRight aria-hidden />
+        </Link>
+      </Button>
+    </div>
   );
 }
