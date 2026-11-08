@@ -11,7 +11,14 @@ import { TransactionRow } from "./transaction-row";
  * **アプリは JST 固定**（`TZ=Asia/Tokyo`）という前提に依る。
  * → docs/01-requirements/non-functional-requirements.md NFR-D8
  */
-export function TransactionList({ rows }: { rows: readonly Row[] }) {
+export function TransactionList({
+  rows,
+  today,
+}: {
+  rows: readonly Row[];
+  /** 「今日 / 昨日」の判定に使う。ページが requestNow() から渡す */
+  today: Date;
+}) {
   const groups = groupByDate(rows);
 
   return (
@@ -19,7 +26,7 @@ export function TransactionList({ rows }: { rows: readonly Row[] }) {
       {groups.map((group) => (
         <section key={group.dateKey}>
           <h2 className="flex items-baseline justify-between px-1 pb-1.5 text-sm text-muted">
-            <span>{formatDateLabel(group.date)}</span>
+            <span>{formatDateLabel(group.date, today)}</span>
             {group.expenseTotal > 0 ? (
               <span className="tabular-nums">
                 {formatYen(group.expenseTotal)}

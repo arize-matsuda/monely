@@ -194,6 +194,30 @@ export function parseAmount(raw: FormDataEntryValue | null): ParseResult<number>
 | 月 | `src/lib/month.ts` | `monthRange("2026-11")`、`prevMonth()`、`formatMonth()` |
 | 日付 | `src/lib/month.ts` | `formatDateLabel("2026-11-07")` → `"11月7日 (金)"` / `"今日"` |
 
+### 8.0 時計を読むのは `requestNow()` だけ
+
+`cacheComponents` が有効な環境では、**レンダリング中の `new Date()` と `Date.now()` はエラーになる**（「プリレンダリング中の不安定な値」）。
+
+```ts
+// src/lib/clock.ts
+export async function requestNow(): Promise<Date> {
+  await connection();   // リクエスト時に評価されることを明示する
+  return new Date();
+}
+```
+
+- 画面やコンポーネントで `new Date()` を書かない。`await requestNow()` を使う
+- **現在時刻を使う関数は必須引数で受け取る**（`parseMonth(value, now)` など）。既定引数 `= new Date()` にすると呼び忘れに気づけない
+- 子コンポーネントには props で渡す（`<TransactionList today={now} />`）
+
+```bash
+# clock.ts 以外で時計を読んでいないか（コメントとテストを除く）
+grep -rn "new Date()\|Date.now()" src --include="*.ts" --include="*.tsx" \
+  | grep -v "^src/generated/" | grep -v "\.test\.ts" | grep -v "src/lib/clock.ts"
+```
+
+> **同じ原因で 2 回つまずいた。** 1 回目は supabase-js がトークンの期限判定で `Date.now()` を読んでいた件、2 回目は `month.ts` の既定引数。**既定引数で時計を読まない**のが再発防止の要。
+
 ### 8.1 禁止事項
 
 - 金額に浮動小数点の演算を使わない。整数（円）のまま足し引きする。

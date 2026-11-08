@@ -3,6 +3,7 @@ import { EmptyMonth } from "@/components/empty-month";
 import { MonthSummary } from "@/components/month-summary";
 import { MonthSwitcher } from "@/components/month-switcher";
 import { TransactionList } from "@/components/transaction-list";
+import { requestNow } from "@/lib/clock";
 import { listTransactionsByMonth } from "@/lib/data/transactions";
 import { summarize } from "@/lib/money";
 import { parseMonth } from "@/lib/month";
@@ -23,7 +24,9 @@ export const instant = false;
  */
 export default async function HomePage({ searchParams }: PageProps<"/">) {
   const params = await searchParams;
-  const month = parseMonth(params.m);
+  // 現在時刻はリクエスト時に取る（src/lib/clock.ts のコメント参照）
+  const now = await requestNow();
+  const month = parseMonth(params.m, now);
   const rows = await listTransactionsByMonth(month);
   const summary = summarize(rows);
 
@@ -36,7 +39,11 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       </div>
 
       <div className="mt-6">
-        {rows.length === 0 ? <EmptyMonth /> : <TransactionList rows={rows} />}
+        {rows.length === 0 ? (
+          <EmptyMonth />
+        ) : (
+          <TransactionList rows={rows} today={now} />
+        )}
       </div>
 
       {/* M4 で下部タブに置き換える。それまでは画面下の固定ボタン */}

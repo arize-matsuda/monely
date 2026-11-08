@@ -50,6 +50,7 @@ Next.js 16（App Router）+ Supabase（**PostgreSQL のみ**）+ **Prisma 7** + 
 8. **`categoryId` / `paidById` は参照先の所属を確認する。** 外部キーでは他世帯の ID を防げない。
 9. **金額は整数（円）。** 浮動小数点の演算を使わない。
 10. **`occurredOn`（`@db.Date`）の整形は UTC で行う。** ローカルタイムだと環境によって前日になる。
+10b. **レンダリング中に `new Date()` / `Date.now()` を読まない。** `cacheComponents` 有効下でエラーになる。`await requestNow()`（`src/lib/clock.ts`）を使い、現在時刻を使う関数には**必須引数**で渡す（既定引数で時計を読むと呼び忘れに気づけない）。
 11. **`any` を使わない。** `queryRawUnsafe` / `executeRawUnsafe` を使わない。
 
 RLS は**使わない**。Supabase の「RLS が無効です」警告は意図した状態。有効にしてもポリシーは効かない（Prisma は所有者ロールで接続する）ので、「守られているつもり」を作るだけ。

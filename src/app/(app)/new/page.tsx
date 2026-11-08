@@ -1,6 +1,7 @@
 import { createTransaction } from "@/actions/transactions";
 import { TransactionForm } from "@/components/transaction-form";
 import { requireMember } from "@/lib/auth";
+import { requestNow } from "@/lib/clock";
 import { listMembers } from "@/lib/data/household";
 import { listCategories } from "@/lib/data/transactions";
 import { todayKey } from "@/lib/month";
@@ -18,6 +19,7 @@ export const instant = false;
  */
 export default async function NewTransactionPage() {
   const me = await requireMember();
+  const now = await requestNow();
   const [expense, income, members] = await Promise.all([
     listCategories("expense"),
     listCategories("income"),
@@ -34,7 +36,7 @@ export default async function NewTransactionPage() {
         initial={{
           kind: "expense",
           amount: "",
-          occurredOn: todayKey(),
+          occurredOn: todayKey(now),
           categoryId: "",
           paidById: me.profileId,
           memo: "",

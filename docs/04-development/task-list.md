@@ -355,6 +355,31 @@ Next.js encountered uncached data during a navigation.
 
 ---
 
+### M3 で見つけて直した不具合
+
+**`new Date()` のプリレンダリングエラー**（2026-11-08）。
+
+```
+Next.js encountered the unstable value new Date() while prerendering.
+```
+
+`month.ts` の `currentMonth` / `parseMonth` / `formatDateLabel` / `todayKey` が
+**既定引数 `= new Date()`** で時計を読んでいた。呼び出し側（`/`、`/new`、
+`TransactionList`）が引数を省略していたため、レンダリング中に評価された。
+
+**これは同じ原因で 2 回目。** 1 回目は supabase-js がトークンの期限判定で
+`Date.now()` を読んでいた件（M2）。どちらも「気づかないうちに時計を読む」形。
+
+直したこと:
+
+| # | 内容 |
+| --- | --- |
+| 1 | `src/lib/clock.ts` の `requestNow()`（`connection()` を待ってから `new Date()`）を作り、**時計を読む場所を 1 箇所にした** |
+| 2 | `month.ts` の 4 関数を**必須引数**に変えた。既定引数をやめたので、呼び忘れると**型エラーになる** |
+| 3 | `TransactionList` は `today` を props で受け取る |
+
+**2 の効果はすぐ出た。** 変更直後の `tsc --noEmit` が `today` の渡し忘れを 1 件検出した。場当たりに直すと 3 回目が来るので、型で防ぐ形にした。
+
 ### M3-5〜16 で判断したこと
 
 | 事項 | 内容 |

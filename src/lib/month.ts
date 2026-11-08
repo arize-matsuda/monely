@@ -26,13 +26,19 @@ export function isMonth(value: unknown): value is Month {
   return month >= 1 && month <= 12;
 }
 
-/** その端末の「今日」が属する月。URL に `?m=` が無いときの既定（FR-L1） */
-export function currentMonth(now: Date = new Date()): Month {
+/**
+ * 「今日」が属する月。URL に `?m=` が無いときの既定（FR-L1）。
+ *
+ * **`now` は必須。** 既定引数で `new Date()` を読むと、
+ * `cacheComponents` 有効下でプリレンダリング中のエラーになる。
+ * 呼び出し側は `requestNow()`（src/lib/clock.ts）から渡す。
+ */
+export function currentMonth(now: Date): Month {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
 }
 
 /** URL の `?m=` を月に解釈する。不正な値は当月として扱う（AC-7） */
-export function parseMonth(value: unknown, now: Date = new Date()): Month {
+export function parseMonth(value: unknown, now: Date): Month {
   return isMonth(value) ? value : currentMonth(now);
 }
 
@@ -70,7 +76,7 @@ export function formatMonth(month: Month): string {
  * `date` は Prisma が返す UTC 0 時の `Date`。**UTC で取り出す。**
  * `today` はその端末の「今日」（ローカルタイム）。
  */
-export function formatDateLabel(date: Date, today: Date = new Date()): string {
+export function formatDateLabel(date: Date, today: Date): string {
   const key = toDateKey(date);
   if (key === localDateKey(today)) return "今日";
   if (key === localDateKey(addDays(today, -1))) return "昨日";
@@ -111,8 +117,8 @@ export function parseDateKey(value: unknown): Date | null {
   return date;
 }
 
-/** その端末の「今日」を `"2026-11-07"` で返す。入力の既定値に使う（FR-T3） */
-export function todayKey(now: Date = new Date()): string {
+/** 「今日」を `"2026-11-07"` で返す。入力の既定値に使う（FR-T3） */
+export function todayKey(now: Date): string {
   return localDateKey(now);
 }
 
