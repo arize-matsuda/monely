@@ -5,8 +5,10 @@ import { summarizeYear } from "@/lib/year-summary";
 import { AppSidebar } from "./app-sidebar";
 import { CategoryBreakdown } from "./category-breakdown";
 import { EmptyMonth } from "./empty-month";
+import { MissingCategoriesNotice } from "./missing-categories-notice";
 import { MonthSummary } from "./month-summary";
 import { MonthSwitcher } from "./month-switcher";
+import { PayerSplit } from "./payer-split";
 import { TransactionList } from "./transaction-list";
 import { TransactionRow } from "./transaction-row";
 import { YearOverview } from "./year-overview";
@@ -279,5 +281,86 @@ describe("年のページの部品（ADR-0010）", () => {
     expect(html).toContain("2026年の合計");
     // 12 行すべて「記録なし」
     expect(html.match(/記録なし/g)).toHaveLength(12);
+  });
+});
+
+describe("Tier 1 の部品（ADR-0011）", () => {
+  it("MissingCategoriesNotice が先月だけにあるカテゴリを出す", () => {
+    const html = renderToStaticMarkup(
+      <MissingCategoriesNotice
+        rows={[row({ categoryId: "c1", category: { name: "食費" } })]}
+        previousRows={[
+          row({
+            amount: 4980,
+            categoryId: "c2",
+            category: { name: "通信" },
+          }),
+        ]}
+      />,
+    );
+    expect(html).toContain("通信");
+    expect(html).toContain("先月 ¥4,980");
+    // 先月の金額つきで /new へ飛ぶ
+    expect(html).toContain("amount=4980");
+    expect(html).toContain("category=c2");
+    // 今月あるカテゴリは出さない
+    expect(html).not.toContain("食費");
+  });
+
+  it("MissingCategoriesNotice は候補が無ければ何も描かない", () => {
+    expect(
+      renderToStaticMarkup(
+        <MissingCategoriesNotice
+          rows={[row({ categoryId: "c1", category: { name: "食費" } })]}
+          previousRows={[row({ categoryId: "c1", category: { name: "食費" } })]}
+        />,
+      ),
+    ).toBe("");
+  });
+
+  it("PayerSplit が支払者別の金額と精算額を出す", () => {
+    const html = renderToStaticMarkup(
+      <PayerSplit
+        rows={[
+          row({ amount: 8000, paidById: "p1" }),
+          row({ amount: 2000, paidById: "p2" }),
+        ]}
+        members={[
+          { id: "p1", displayName: "たっつ" },
+          { id: "p2", displayName: "はなこ" },
+        ]}
+      />,
+    );
+    expect(html).toContain("たっつ");
+    expect(html).toContain("¥8,000");
+    expect(html).toContain("80%");
+    // 差額 6000 の半分
+    expect(html).toContain("¥3,000");
+    expect(html).toContain("均等に分けるなら");
+  });
+
+  it("PayerSplit は 1 人の世帯では何も描かない", () => {
+    expect(
+      renderToStaticMarkup(
+        <PayerSplit
+          rows={[row({ amount: 8000, paidById: "p1" })]}
+          members={[{ id: "p1", displayName: "たっつ" }]}
+        />,
+      ),
+    ).toBe("");
+  });
+
+  it("PayerSplit は支出が無ければ何も描かない", () => {
+    expect(
+      renderToStaticMarkup(
+        <PayerSplit
+          rows={[row({ kind: "income", amount: 300000, paidById: "p1" })]}
+          members={[
+            { id: "p1", displayName: "たっつ" },
+            { id: "p2", displayName: "はなこ" },
+          ]}
+        />,
+      ),
+    ).toBe("");
   });
 });

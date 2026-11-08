@@ -1,4 +1,4 @@
-import { ArrowLeft, SearchX } from "lucide-react";
+import { ArrowLeft, CopyPlus, SearchX } from "lucide-react";
 import Link from "next/link";
 import { updateTransaction } from "@/actions/transactions";
 import { DeleteTransaction } from "@/components/delete-transaction";
@@ -21,6 +21,7 @@ import {
   USAGE_WINDOW_DAYS,
 } from "@/lib/data/transactions";
 import { dateShortcuts, daysAgo, toDateKey } from "@/lib/month";
+import { duplicateHref } from "@/lib/prefill";
 
 export const metadata = { title: "記録の編集 | Monely" };
 
@@ -96,7 +97,18 @@ export default async function EditTransactionPage({
         dateShortcuts={dateShortcuts(now)}
         submitLabel="更新する"
         pendingLabel="更新中…"
-        footer={<DeleteTransaction id={transaction.id} />}
+        footer={
+          <>
+            {/* 毎月同じ支出を入れ直す手間を 1 タップにする（FR-T11） */}
+            <Button asChild variant="outline">
+              <Link href={duplicateHref(transaction)}>
+                <CopyPlus aria-hidden />
+                これと同じ記録を作る
+              </Link>
+            </Button>
+            <DeleteTransaction id={transaction.id} />
+          </>
+        }
       />
     </main>
   );
