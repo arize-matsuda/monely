@@ -29,7 +29,7 @@
 | | |
 | --- | --- |
 | **進行中のマイルストーン** | **M4（スマホ UI の仕上げ）**。M3 = v1 は 2026-11-08 に完了 |
-| **次にやること** | **本番マイグレーション（`pnpm db:deploy`、0004 と 0005）** → 画面確認 → M5-1 デプロイ先 |
+| **次にやること** | 画面確認（手作業）→ M5-1 デプロイ先の決定 |
 | **UI の満足度** | 2026-11-08 shadcn 化後も「まだ良いとは思えない」との評価。**PC はスマホと別のレイアウトにしたい**（サイドバー、図）という要望あり |
 | **方針変更** | 2026-11-07 認可をアプリ層へ（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）/ 2026-11-08 認証をメール+パスワードへ（[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）/ 同日 認証基盤を better-auth へ（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)）/ 同日 UI に shadcn/ui を採用（[ADR-0008](../05-decisions/ADR-0008-shadcn-ui.md)） |
 | **ブロッカー** | なし |
@@ -524,7 +524,7 @@ Next.js encountered the unstable value new Date() while prerendering.
 - [x] M4-21 **Tier 3: 定期支出（手動トリガー版）**（FR-R1〜R3）（2026-11-09）
   - [ADR-0011](../05-decisions/ADR-0011-tier1-and-recurring.md)
   - **マイグレーション `0005_recurring`。列の追加のみ**（既定値 false なので既存行は影響なし）
-  - **本番適用は未実施**（`pnpm db:deploy` はあなたの操作）
+  - **本番適用済み（2026-11-09）**
   - 部分インデックス `WHERE recurring` を付けた（false の大多数を載せない）
   - 判定は純関数 `recurringCandidates`（テスト 20 件）。**1/31 → 2/28 の寄せも確認**
   - DAL `createRecurringForMe` + **認可テスト 5 件**
@@ -538,7 +538,7 @@ Next.js encountered the unstable value new Date() while prerendering.
 - [x] M4-20 **Tier 2: カテゴリごとの月予算**（FR-B1〜B3）（2026-11-09）
   - [ADR-0011](../05-decisions/ADR-0011-tier1-and-recurring.md)
   - **マイグレーション `0004_budgets`。追加のみで既存テーブルに触らない**
-  - **本番適用は未実施**（`pnpm db:deploy` はあなたの操作）。適用後に [テスト戦略 §4.2](../03-guidelines/testing-strategy.md#42-認可の確認毎回実施) で `anon` / `authenticated` の権限が 0 件であることを確認する
+  - **本番適用済み（2026-11-09）。** 下の「M4-20 / M4-21 本番適用の確認結果」を参照
   - ローカルの捨て DB で CHECK（0 / 負数 / 上限+1）・一意制約・cascade を実測
   - DAL `src/lib/data/budgets.ts` + **認可テスト 12 件**（他世帯のカテゴリに設定できない / 他世帯の予算を 0 で消せない）
   - `/settings/budgets` で全カテゴリをまとめて保存。空欄か 0 で予算なし
@@ -664,6 +664,33 @@ v1 を 1 か月使ってから判断する。候補は [プロダクト要件 §
 ## 確認結果の記録
 
 マイルストーン完了時にここへ追記する（新しいものを上に）。
+
+### M4-20 / M4-21 本番適用の確認結果（2026-11-09）
+
+`pnpm db:deploy` で `0004_budgets` と `0005_recurring` を本番に適用した。
+
+| 確認項目 | 結果 |
+| --- | --- |
+| `budgets` テーブル | あり。制約 5 件（CHECK 2 / FK 2 / PK） |
+| `transactions.recurring` | `boolean` / 既定 `false` / NOT NULL |
+| 部分インデックス `transactions_recurring_idx` | あり |
+| **`anon` / `authenticated` の `public` 権限** | **0 件**（PostgREST は塞がったまま） |
+| `budgets` の権限保持者 | `postgres` と `service_role` のみ |
+| 既存データ | `transactions` 1 件 / `categories` 18 件がそのまま。`recurring` は全件 `false` |
+| `pnpm db:status` | 「Database schema is up to date!」 |
+
+**`0002` の `alter default privileges` が新規テーブルにも効くことを本番で実測できた。**
+ローカルの捨て DB には `anon` / `authenticated` ロールが無く、
+[DB設計 §4.1「将来のテーブルも守られる」](../02-design/database-design.md#将来のテーブルも守られる)
+はこれまで未検証だった。
+
+#### 段取りの反省
+
+スキーマを変える機能（予算・定期支出）を 2 つ続けて実装したあと、
+「マイグレーションが必要」と書いただけで**画面が動かない状態で渡してしまった。**
+利用者は `transactions.recurring does not exist` のエラーに当たった。
+
+**次に DB を変える実装をするときは、適用が必要なことを実装の前に伝える。**
 
 ### M3 確認結果（2026-11-08、完了＝**v1 完成**）
 

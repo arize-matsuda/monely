@@ -247,7 +247,11 @@ RLS を使わない構成では行を絞る仕組みが無いため、**既定�
 
 ### 将来のテーブルも守られる
 
-Supabase の既定権限（新規テーブルに `anon` へ `ALL` を付与）を、`postgres` ロール向けに打ち消してある。実際にテーブルを作って `anon` / `authenticated` に権限が付かないことを確認済み。
+Supabase の既定権限（新規テーブルに `anon` へ `ALL` を付与）を、`postgres` ロール向けに打ち消してある。
+
+**2026-11-09 に本番で実測した。** `0004_budgets` でテーブルを 1 つ追加した直後、`anon` / `authenticated` の `public` スキーマへのテーブル権限は **0 件**のままで、`budgets` の権限保持者は `postgres` と `service_role` だけだった。
+
+> ローカルの捨て DB には `anon` / `authenticated` ロールが無いため、この確認は**本番でしかできない**。スキーマを変えたら [テスト戦略 §4.2](../03-guidelines/testing-strategy.md#42-認可の確認毎回実施) に従って毎回見る。
 
 ---
 
