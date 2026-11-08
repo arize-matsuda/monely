@@ -68,6 +68,24 @@ function Button({
   }) {
   const Comp = asChild ? Slot.Root : "button";
 
+  /*
+   * **asChild のときは children をそのまま渡す。**
+   * Slot は子が React 要素 1 つであることを要求するので、
+   * スピナーを足したり null を混ぜたりすると
+   * 「Slot failed to slot onto its children」で落ちる。
+   *
+   * アイコンだけのボタンは横に並べる余地が無いので、
+   * スピナーで中身を置き換える。
+   */
+  const content = asChild ? (
+    children
+  ) : (
+    <>
+      {pending ? <Loader2Icon className="animate-spin" aria-hidden /> : null}
+      {pending && String(size).startsWith("icon") ? null : children}
+    </>
+  );
+
   return (
     <Comp
       data-slot="button"
@@ -78,14 +96,7 @@ function Button({
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     >
-      {/*
-        asChild のときは子が 1 つでなければならないので足さない。
-        アイコンだけのボタンは並べる余地が無いので、中身を置き換える。
-      */}
-      {pending && !asChild ? (
-        <Loader2Icon className="animate-spin" aria-hidden />
-      ) : null}
-      {pending && !asChild && String(size).startsWith("icon") ? null : children}
+      {content}
     </Comp>
   );
 }

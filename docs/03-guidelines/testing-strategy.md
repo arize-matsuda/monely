@@ -127,6 +127,26 @@ describe("updateTransactionForMe / deleteTransactionForMe", () => {
 
 `asMember()` は `requireMember()` が返す値を差し替えるヘルパー（認証のモック）。**DB へのクエリはモックしない。**
 
+### 3.2.1 画面部品の煙テスト
+
+`react-dom/server` の `renderToStaticMarkup` で描画して、**落ちないこと**と
+**props が子に届いていること**を見る（`src/components/render.test.tsx`、
+`src/components/ui/button.test.tsx`）。
+
+| | |
+| --- | --- |
+| 使う道具 | `react-dom/server` のみ。**新しい依存を入れない**（jsdom も testing-library も使わない） |
+| 見るもの | 描画が落ちないこと、`href` などの出力、**`className` と `data-slot` が子に届いていること** |
+| 見ないもの | 見た目、操作の結果。クリックや入力は扱わない |
+| 扱わない部品 | Client Component で `useActionState` を使うもの（サーバー描画で動かない） |
+
+`next/link` はそのまま描ける（Next の文脈は要らない）。
+
+**なぜ class を見るのか。** `asChild`（Radix の Slot）は、子が Fragment だと
+**props を黙って捨てる**。`href` と文字だけを見ていると「無装飾のリンク」を
+見逃す。サーバー描画では例外にならず、ブラウザでだけ
+「Slot failed to slot onto its children」になる。
+
 ### 3.3 テストを足すタイミング
 
 | 操作 | 必要なテスト |

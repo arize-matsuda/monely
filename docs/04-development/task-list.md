@@ -370,6 +370,29 @@ Next.js encountered uncached data during a navigation.
 
 ### M4 で見つけて直した不具合
 
+**`asChild` の Button が全部壊れていた**（2026-11-08）。
+
+```
+Slot failed to slot onto its children.
+Expected a single React element child or `Slottable`.
+  at HomePage (src/app/(app)/page.tsx:35)
+```
+
+| | |
+| --- | --- |
+| 原因 | M4-11 で `Button` に `pending` を足したとき、children を Fragment で包んだ。**Radix の Slot は子が Fragment だと props を黙って捨てる** |
+| 症状 | **ホーム画面が丸ごと表示できない。** `MonthSwitcher` / `EmptyMonth` / 編集画面の「ホームに戻る」が該当 |
+| なぜ見逃したか | `tsc` も `pnpm build` も通る**実行時だけの不具合**。画面部品のテストが 1 件も無かった |
+| 直し方 | `asChild` のときは `children` をそのまま渡す |
+
+**同じ類を止める仕掛けを入れた。** `react-dom/server` の
+`renderToStaticMarkup` で描く煙テスト（`src/components/render.test.tsx`、
+`src/components/ui/button.test.tsx`、15 件）。新しい依存は入れていない。
+**壊れた版に戻して ★ の 5 件が落ちることを確認済み。**
+
+`href` と文字だけでは検出できない（Fragment は props を捨てるだけで
+例外にならない）ので、**`className` と `data-slot` が子に届いているか**を見る。
+
 **`refresh()` を足したら、テーマのスクリプトでエラーが出た**（2026-11-08）。
 
 ```

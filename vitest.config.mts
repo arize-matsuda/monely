@@ -24,7 +24,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // .tsx も拾う。コンポーネントは react-dom/server で描画して、
+    // 「落ちないこと」を確かめる（ブラウザは使わない）
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     setupFiles: ["./src/test/setup.ts"],
     // DB を共有するテストが並行で干渉しないように直列で動かす。
     // 件数が少ないので速度は問題にならない

@@ -265,6 +265,29 @@ grep -rn "new Date()\|Date.now()" src --include="*.ts" --include="*.tsx" \
 | 削除・エラー | `text-destructive` / `bg-destructive/10` | ~~`text-danger`~~（削除済み） |
 | 差額がマイナスの金額 | `text-deficit` | `text-destructive`（役割が別。ADR-0008） |
 
+### 9.1.1 `asChild` を壊さない
+
+`asChild`（Radix の Slot）を受けるコンポーネントで、**children を加工しない。**
+Fragment で包んだり `null` を混ぜたりすると、Slot が Fragment を単一の子と見て
+props を渡し、**Fragment はそれを黙って捨てる。**
+
+```tsx
+// だめ: asChild のときも Fragment で包んでいる
+const content = (
+  <>
+    {pending ? <Spinner /> : null}
+    {children}
+  </>
+);
+
+// よい: asChild のときは children をそのまま渡す
+const content = asChild ? children : <>{pending ? <Spinner /> : null}{children}</>;
+```
+
+サーバー描画では例外にならず「無装飾のリンク」になるだけなので、
+`pnpm build` も `tsc` も通る。検出は
+[煙テスト](./testing-strategy.md#321-画面部品の煙テスト)で行う。
+
 ### 9.2 `src/components/ui/` の扱い
 
 shadcn/ui が生成したファイル（`button.tsx` など）は **npm の依存ではなく、このリポジトリのコード**。必要なら編集する。ただし次を守る。
