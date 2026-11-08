@@ -456,11 +456,16 @@ Next.js encountered the unstable value new Date() while prerendering.
   - ホームと設定に置く。**`/new` と編集画面には置かない**（下部は保存ボタンの場所）
   - その 2 画面は左上に ✕（`FormPageHeader`）。ワイヤー §4.2 の通りにした
   - フォーム下部の「やめる」は ✕ に集約して削除
-- [ ] M4-2 `/settings` — 世帯名の変更
-- [ ] M4-3 `/settings` — 招待コードの表示
-- [ ] M4-4 `/settings` — メンバー一覧
-- [ ] M4-5 `/settings` — 表示名の変更
-- [ ] M4-6 `/settings` — ログアウト
+- [x] M4-2 `/settings` — 世帯名の変更（2026-11-08）
+- [x] M4-3 `/settings` — 招待コードの表示（M2 で実装済み）
+- [x] M4-4 `/settings` — メンバー一覧（M2 で実装済み）
+- [x] M4-5 `/settings` — 表示名の変更（2026-11-08）
+- [x] M4-6 `/settings` — ログアウト（M2 で実装済み）
+
+> M4-2 / M4-5 は DAL（`updateMyHouseholdName` / `updateMyDisplayName`）と
+> その認可テストが M2 の時点で揃っていた。足したのは Server Action
+> （`renameHousehold` / `renameMe`）と UI（`InlineRename`）だけ。
+> 画面に残るので `redirect` せず `refresh()` で再描画する。
 - [ ] M4-7 カテゴリ管理（追加・改名・非表示）
 - [ ] M4-8 カテゴリの並びを直近 30 日の使用頻度順に
 - [ ] M4-9 日付の「今日 / 昨日」ショートカット

@@ -1,5 +1,6 @@
 import { Home, KeyRound, Palette, Users } from "lucide-react";
 import { signOut } from "@/actions/auth";
+import { renameHousehold, renameMe } from "@/actions/household";
 import { BottomTabs } from "@/components/bottom-tabs";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { requireMember } from "@/lib/auth";
 import { getMyHousehold, listMembers } from "@/lib/data/household";
+import { InlineRename } from "./inline-rename";
 import { PasswordForm } from "./password-form";
 
 // セッションを読むため、サーバーでブロックして描画する。
@@ -50,9 +52,18 @@ export default async function SettingsPage() {
             <Home className="size-4 text-muted-foreground" aria-hidden />
             わが家
           </CardTitle>
-          <CardDescription>{household?.name}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          <InlineRename
+            action={renameHousehold}
+            label="名前"
+            name="householdName"
+            value={household?.name ?? ""}
+            maxLength={30}
+          />
+
+          <Separator />
+
           <div>
             <p className="text-sm font-medium">招待コード</p>
             <p className="mt-1 font-mono text-2xl tracking-[0.2em]">
@@ -93,16 +104,21 @@ export default async function SettingsPage() {
         <CardHeader>
           <CardTitle>あなた</CardTitle>
         </CardHeader>
-        <CardContent>
-          <dl className="flex flex-col gap-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">表示名</dt>
-              <dd>{me.displayName}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">メール</dt>
-              <dd className="truncate">{me.email}</dd>
-            </div>
+        <CardContent className="flex flex-col gap-4">
+          <InlineRename
+            action={renameMe}
+            label="表示名"
+            name="displayName"
+            value={me.displayName}
+            maxLength={20}
+            hint="一覧で「支払った人」として表示されます。過去の記録の表示も変わります"
+          />
+
+          <Separator />
+
+          <dl className="flex justify-between gap-4 text-sm">
+            <dt className="text-muted-foreground">メール</dt>
+            <dd className="truncate">{me.email}</dd>
           </dl>
         </CardContent>
       </Card>
