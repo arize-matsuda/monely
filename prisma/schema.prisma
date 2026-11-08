@@ -36,6 +36,7 @@ model Household {
   profiles     Profile[]
   categories   Category[]
   transactions Transaction[]
+  budgets      Budget[]
 
   @@map("households")
 }
@@ -73,6 +74,7 @@ model Category {
 
   household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  budgets      Budget[]
 
   @@unique([householdId, kind, name])
   @@index([householdId, kind, sortOrder])
@@ -80,6 +82,27 @@ model Category {
 }
 
 /// 収支 1 件
+/// カテゴリごとの月予算（FR-B1〜B3 / ADR-0011）。
+/// **毎月同じ額が適用される。** 月ごとに違う額を持たせるなら
+/// (household_id, category_id, month) の複合キーに変える。
+model Budget {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  /// DAL の where で必ず指定する。認可の要
+  householdId String   @map("household_id") @db.Uuid
+  categoryId  String   @map("category_id") @db.Uuid
+  /// 円。1 以上の整数。0 は「予算なし」として行を消す
+  amount      Int
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  /// 1 カテゴリに 1 件。世帯も入れて、他世帯のカテゴリと衝突しないようにする
+  @@unique([householdId, categoryId])
+  @@map("budgets")
+}
+
 model Transaction {
   id String @id @default(uuid(7)) @db.Uuid
   /// DAL の where で必ず指定する。認可の要

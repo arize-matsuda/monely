@@ -49,7 +49,9 @@ erDiagram
     Household ||--o{ Profile : "所属"
     Household ||--o{ Category : "持つ"
     Household ||--o{ Transaction : "持つ"
+    Household ||--o{ Budget : "持つ"
     Category ||--o{ Transaction : "分類"
+    Category ||--o| Budget : "月予算"
     Profile ||--o{ Transaction : "paidBy（支払った人）"
     Profile ||--o{ Transaction : "createdBy（入力した人）"
 
@@ -85,6 +87,14 @@ erDiagram
         String paidById FK "null可"
         String memo "200文字"
         String createdById FK
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    Budget {
+        String id PK
+        String householdId FK "DAL の where で必ず指定"
+        String categoryId FK "UK（householdId と複合）"
+        Int amount "円・1以上"
         DateTime createdAt
         DateTime updatedAt
     }
@@ -163,6 +173,23 @@ erDiagram
 
 - インデックス: `(householdId, occurredOn desc, createdAt desc)` — 月次一覧がそのまま乗る（NFR-P4）
 - **`amount` を符号付きにしない理由**: 集計で `kind` の指定を忘れたときに、静かに間違った値が出るのを避ける。
+
+### 3.4.1 `Budget` — カテゴリごとの月予算
+
+→ [ADR-0011](../05-decisions/ADR-0011-tier1-and-recurring.md) / FR-B1〜B3（マイグレーション `0004_budgets`）
+
+| フィールド | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| `id` | String | PK | |
+| `householdId` | String | FK → Household, `onDelete: Cascade` | **認可の要。** DAL の `where` で必ず指定する |
+| `categoryId` | String | FK → Category, `onDelete: Cascade` | **カテゴリを消したら予算も消える**（残しても意味が無い） |
+| `amount` | Int | **CHECK `> 0` かつ `<= 9999999`** | 円。**0 は持たない**（予算なしは行を消す） |
+| `createdAt` | DateTime | default now | |
+| `updatedAt` | DateTime | `@updatedAt` | |
+
+- 一意制約: `(householdId, categoryId)` — 1 カテゴリに 1 件。**世帯も入れる**ことで他世帯のカテゴリと衝突しない
+- **月ごとの予算は持たない。** 毎月同じ額が適用される。月ごとに変えたくなったら `(householdId, categoryId, month)` に広げる
+- **収入のカテゴリにも設定はできる**（DB は区別しない）が、画面は支出だけを出す
 
 ### 3.5 `Kind` — enum
 

@@ -6,10 +6,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { type BudgetUsage, budgetUsage } from "@/lib/budget-usage";
 import {
   breakdownByCategory,
   type CategoryShare,
 } from "@/lib/category-breakdown";
+import type { BudgetMap } from "@/lib/data/budgets";
 import type { TransactionRow } from "@/lib/data/transactions";
 import { compareAmount, formatDiff, formatYen } from "@/lib/money";
 
@@ -33,10 +35,13 @@ const CHART_COLORS = [
 export function CategoryBreakdown({
   rows,
   previousRows,
+  budgets,
 }: {
   rows: readonly TransactionRow[];
   /** 先月の行。渡すと各カテゴリに先月比が付く（FR-L9） */
   previousRows?: readonly TransactionRow[];
+  /** 予算。渡すと消化率が付く（FR-B2） */
+  budgets?: BudgetMap;
 }) {
   const shares = breakdownByCategory(rows, previousRows);
   if (shares.length === 0) return null;
@@ -61,6 +66,11 @@ export function CategoryBreakdown({
               key={share.categoryId ?? "uncategorized"}
               share={share}
               color={CHART_COLORS[index % CHART_COLORS.length] as string}
+              usage={
+                budgets === undefined
+                  ? null
+                  : budgetUsage(budgets, share.categoryId, share.total)
+              }
             />
           ))}
         </dl>
@@ -101,7 +111,15 @@ function PreviousMonth({
   );
 }
 
-function Share({ share, color }: { share: CategoryShare; color: string }) {
+function Share({
+  share,
+  color,
+  usage,
+}: {
+  share: CategoryShare;
+  color: string;
+  usage: BudgetUsage | null;
+}) {
   const percent = Math.round(share.ratio * 100);
 
   return (
@@ -125,14 +143,30 @@ function Share({ share, color }: { share: CategoryShare; color: string }) {
       </div>
       {/*
         棒は装飾なので読み上げから隠す（上の行で金額と割合を文字で出している）。
-        1% でも線が見えるように最小幅を持たせる
+        1% でも線が見えるように最小幅を持たせる。
+        予算があるときは**予算に対する消化率**を描く（支出全体の割合ではなく、
+        「予算をどこまで使ったか」のほうが行動に繋がる）
       */}
       <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden>
         <div
-          className={`h-full rounded-full ${color}`}
-          style={{ width: `${Math.max(share.ratio * 100, 2)}%` }}
+          className={`h-full rounded-full ${usage?.over ? "bg-destructive" : color}`}
+          style={{
+            width: `${Math.min(Math.max((usage ? usage.ratio : share.ratio) * 100, 2), 100)}%`,
+          }}
         />
       </div>
+      {usage === null ? null : (
+        <p className="text-xs text-muted-foreground tabular-nums">
+          予算 {formatYen(usage.budget)} の{Math.round(usage.ratio * 100)}%
+          {usage.over ? (
+            <span className="ml-1 font-medium text-destructive">
+              {formatYen(-usage.remaining)} 超過
+            </span>
+          ) : (
+            <span className="ml-1">残り {formatYen(usage.remaining)}</span>
+          )}
+        </p>
+      )}
     </div>
   );
 }

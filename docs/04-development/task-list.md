@@ -521,6 +521,17 @@ Next.js encountered the unstable value new Date() while prerendering.
   - ホームが先月ぶんの行も取る。**合計だけの DAL 関数は足さない**（認可の面を増やさない）
   - [ ] 画面での確認（手作業）
 
+- [x] M4-20 **Tier 2: カテゴリごとの月予算**（FR-B1〜B3）（2026-11-09）
+  - [ADR-0011](../05-decisions/ADR-0011-tier1-and-recurring.md)
+  - **マイグレーション `0004_budgets`。追加のみで既存テーブルに触らない**
+  - **本番適用は未実施**（`pnpm db:deploy` はあなたの操作）。適用後に [テスト戦略 §4.2](../03-guidelines/testing-strategy.md#42-認可の確認毎回実施) で `anon` / `authenticated` の権限が 0 件であることを確認する
+  - ローカルの捨て DB で CHECK（0 / 負数 / 上限+1）・一意制約・cascade を実測
+  - DAL `src/lib/data/budgets.ts` + **認可テスト 12 件**（他世帯のカテゴリに設定できない / 他世帯の予算を 0 で消せない）
+  - `/settings/budgets` で全カテゴリをまとめて保存。空欄か 0 で予算なし
+  - 内訳の棒を「予算に対する消化率」に差し替え、超過は `--destructive`
+  - `pnpm check:contrast` に「超過の棒 / 下地」を追加（両モード 3:1 以上）
+  - [ ] 画面での確認（手作業）
+
 - [x] M4-19 **Tier 1: 複製・記録忘れの提示・支払者別の集計**（2026-11-09）
   - [ADR-0011](../05-decisions/ADR-0011-tier1-and-recurring.md)。本人の要望「Tier 3 まで実装してほしい」
   - **FR-T11 記録の複製**: 編集画面に「これと同じ記録を作る」。`/new?amount=&category=&paidBy=&memo=&kind=` で初期値を渡す。**日付は引き継がない**（複製は「今月も入れる」用途）

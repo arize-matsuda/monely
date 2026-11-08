@@ -2,9 +2,11 @@ import {
   ChevronRight,
   Home,
   KeyRound,
+  type LucideIcon,
   Palette,
   Tags,
   Users,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "@/actions/auth";
@@ -41,6 +43,28 @@ export const metadata = { title: "設定 | Monely" };
  * パスワードの変更（FR-A10）は、マジックリンクで作ったアカウントに
  * パスワードを設定する必要があるため M2 の段階で用意した。
  */
+/** 設定から別ページへ送る 1 行 */
+function SettingsLink({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href: string;
+  icon: LucideIcon;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex min-h-14 items-center gap-2 px-4 transition-colors hover:bg-muted/60"
+    >
+      <Icon className="size-4 text-muted-foreground" aria-hidden />
+      <span className="flex-1 font-heading text-base font-medium">{label}</span>
+      <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+    </Link>
+  );
+}
+
 export default async function SettingsPage() {
   const me = await requireMember();
   const [household, members] = await Promise.all([
@@ -131,18 +155,16 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* カテゴリは行ごとに操作が付くので別ページにした（UI/UX設計 §4.6） */}
+      {/* 行ごとに操作が付くものは別ページにしている（UI/UX設計 §4.6） */}
       <Card className="[--card-spacing:--spacing(0)]">
-        <Link
-          href="/settings/categories"
-          className="flex min-h-14 items-center gap-2 px-4 transition-colors hover:bg-muted/60"
-        >
-          <Tags className="size-4 text-muted-foreground" aria-hidden />
-          <span className="flex-1 font-heading text-base font-medium">
-            カテゴリの管理
-          </span>
-          <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
-        </Link>
+        <div className="divide-y divide-border">
+          <SettingsLink
+            href="/settings/categories"
+            icon={Tags}
+            label="カテゴリの管理"
+          />
+          <SettingsLink href="/settings/budgets" icon={Wallet} label="予算" />
+        </div>
       </Card>
 
       <Card>

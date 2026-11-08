@@ -7,6 +7,7 @@ import { MonthSwitcher } from "@/components/month-switcher";
 import { PayerSplit } from "@/components/payer-split";
 import { TransactionList } from "@/components/transaction-list";
 import { requestNow } from "@/lib/clock";
+import { listBudgets } from "@/lib/data/budgets";
 import { listMembers } from "@/lib/data/household";
 import { listTransactionsByMonth } from "@/lib/data/transactions";
 import { summarize } from "@/lib/money";
@@ -42,10 +43,11 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
    * 条件を書き忘れうる場所が 1 つ増える（ADR-0005 の約束 B / ADR-0009）。
    * 1 か月の件数は家族の家計簿なら数十件なので、行ごと取っても軽い。
    */
-  const [rows, previousRows, members] = await Promise.all([
+  const [rows, previousRows, members, budgets] = await Promise.all([
     listTransactionsByMonth(month),
     listTransactionsByMonth(prevMonth(month)),
     listMembers(),
+    listBudgets(),
   ]);
   const summary = summarize(rows);
   const previous = summarize(previousRows);
@@ -70,7 +72,11 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           ) : null}
           {/* 内訳は PC だけ。スマホは縦に伸びすぎる（ADR-0009） */}
           <div className="hidden md:flex md:flex-col md:gap-4">
-            <CategoryBreakdown rows={rows} previousRows={previousRows} />
+            <CategoryBreakdown
+              rows={rows}
+              previousRows={previousRows}
+              budgets={budgets}
+            />
             {/* 1 人の世帯では描かれない（コンポーネント側で判断） */}
             <PayerSplit rows={rows} members={members} />
           </div>

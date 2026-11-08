@@ -364,3 +364,55 @@ describe("Tier 1 の部品（ADR-0011）", () => {
     ).toBe("");
   });
 });
+
+describe("予算の表示（FR-B2 / ADR-0011）", () => {
+  it("予算を渡すと消化率と残りを出す", () => {
+    const html = renderToStaticMarkup(
+      <CategoryBreakdown
+        rows={[
+          row({ amount: 42500, categoryId: "c1", category: { name: "食費" } }),
+        ]}
+        budgets={new Map([["c1", 50000]])}
+      />,
+    );
+    expect(html).toContain("予算 ¥50,000 の85%");
+    expect(html).toContain("残り ¥7,500");
+    expect(html).not.toContain("超過");
+  });
+
+  it("超過は destructive で示す", () => {
+    const html = renderToStaticMarkup(
+      <CategoryBreakdown
+        rows={[
+          row({ amount: 60000, categoryId: "c1", category: { name: "食費" } }),
+        ]}
+        budgets={new Map([["c1", 50000]])}
+      />,
+    );
+    expect(html).toContain("¥10,000 超過");
+    expect(html).toContain("bg-destructive");
+  });
+
+  it("予算を設定していないカテゴリには出さない", () => {
+    const html = renderToStaticMarkup(
+      <CategoryBreakdown
+        rows={[
+          row({ amount: 1000, categoryId: "c9", category: { name: "雑費" } }),
+        ]}
+        budgets={new Map([["c1", 50000]])}
+      />,
+    );
+    expect(html).not.toContain("予算");
+  });
+
+  it("budgets を渡さなければ従来どおり（予算の表示なし）", () => {
+    const html = renderToStaticMarkup(
+      <CategoryBreakdown
+        rows={[
+          row({ amount: 1000, categoryId: "c1", category: { name: "食費" } }),
+        ]}
+      />,
+    );
+    expect(html).not.toContain("予算");
+  });
+});
