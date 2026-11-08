@@ -7,12 +7,28 @@ import { type ActionResult, fail, type Kind, ok } from "./types";
  */
 
 const FULLWIDTH_DIGITS = /[０-９]/g;
+const FULLWIDTH_ALNUM = /[０-９Ａ-Ｚａ-ｚ]/g;
+
+/** 全角と半角のコードポイントの差 */
+const FULLWIDTH_OFFSET = 0xfee0;
+
+function toHalfWidth(c: string): string {
+  return String.fromCharCode(c.charCodeAt(0) - FULLWIDTH_OFFSET);
+}
 
 /** 全角数字を半角に直す。スマホの日本語キーボードで混入しやすい */
 export function normalizeDigits(input: string): string {
-  return input.replace(FULLWIDTH_DIGITS, (c) =>
-    String.fromCharCode(c.charCodeAt(0) - 0xfee0),
-  );
+  return input.replace(FULLWIDTH_DIGITS, toHalfWidth);
+}
+
+/**
+ * 全角の英数字を半角に直す。
+ *
+ * **招待コードのような「英数字しか取り得ない項目」専用。**
+ * メモや名前には使わない（意図した全角表記を壊してしまう）。
+ */
+export function normalizeAlnum(input: string): string {
+  return input.replace(FULLWIDTH_ALNUM, toHalfWidth);
 }
 
 function asString(value: FormDataEntryValue | null): string {
@@ -78,11 +94,14 @@ export function parseEmail(
 
 const INVITE_CODE = /^[A-Z0-9]{6}$/;
 
-/** 招待コード。小文字で入力されても大文字に直して照合する */
+/**
+ * 招待コード。小文字で入力されても大文字に直して照合する。
+ * 全角で入力されても受け入れる（英数字しか取り得ない項目なので正規化して困らない）。
+ */
 export function parseInviteCode(
   value: FormDataEntryValue | null,
 ): ActionResult<string> {
-  const code = normalizeDigits(asString(value)).trim().toUpperCase();
+  const code = normalizeAlnum(asString(value)).trim().toUpperCase();
   if (code.length === 0) {
     return fail("VALIDATION", "招待コードを入力してください", "inviteCode");
   }
