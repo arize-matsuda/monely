@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { TransactionRow as Row } from "@/lib/data/transactions";
+import { summarizeYear } from "@/lib/year-summary";
 import { AppSidebar } from "./app-sidebar";
 import { CategoryBreakdown } from "./category-breakdown";
 import { EmptyMonth } from "./empty-month";
@@ -8,6 +9,7 @@ import { MonthSummary } from "./month-summary";
 import { MonthSwitcher } from "./month-switcher";
 import { TransactionList } from "./transaction-list";
 import { TransactionRow } from "./transaction-row";
+import { YearOverview } from "./year-overview";
 
 /**
  * 画面部品の**煙テスト**。`react-dom/server` で描画して落ちないことを見る。
@@ -236,5 +238,46 @@ describe("PC 向けの部品（ADR-0009）", () => {
         <CategoryBreakdown rows={[row({ kind: "income", amount: 300000 })]} />,
       ),
     ).toBe("");
+  });
+});
+
+describe("年のページの部品（ADR-0010）", () => {
+  it("★ YearOverview が 12 か月すべて描ける", () => {
+    const html = renderToStaticMarkup(
+      <YearOverview
+        summary={summarizeYear(2026, [
+          {
+            occurredOn: new Date("2026-01-15T00:00:00.000Z"),
+            kind: "expense",
+            amount: 182400,
+          },
+          {
+            occurredOn: new Date("2026-03-01T00:00:00.000Z"),
+            kind: "income",
+            amount: 320000,
+          },
+        ])}
+      />,
+    );
+    // 12 か月すべての見出しがある（記録が無い月も並べる）
+    for (const label of ["1月", "2月", "6月", "12月"]) {
+      expect(html).toContain(label);
+    }
+    expect(html).toContain("記録なし");
+    expect(html).toContain("¥182,400");
+    // 各月からその月のホームへ飛べる
+    expect(html).toContain('href="/?m=2026-01"');
+    expect(html).toContain('href="/?m=2026-12"');
+    // 年間の合計
+    expect(html).toContain("2026年の合計");
+  });
+
+  it("YearOverview は記録が無い年でも落ちない", () => {
+    const html = renderToStaticMarkup(
+      <YearOverview summary={summarizeYear(2026, [])} />,
+    );
+    expect(html).toContain("2026年の合計");
+    // 12 行すべて「記録なし」
+    expect(html.match(/記録なし/g)).toHaveLength(12);
   });
 });

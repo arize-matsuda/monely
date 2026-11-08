@@ -6,16 +6,22 @@ import {
   formatDateLabel,
   formatDateSlashed,
   formatMonth,
+  formatMonthShort,
   isMonth,
+  isYear,
   localDateKey,
   monthOf,
   monthRange,
+  monthsOfYear,
   nextMonth,
   parseDateKey,
   parseMonth,
+  parseYear,
   prevMonth,
   toDateKey,
   todayKey,
+  yearOf,
+  yearRange,
 } from "./month";
 
 /** Prisma の @db.Date が返す形（UTC 0 時） */
@@ -280,5 +286,75 @@ describe("dateShortcuts", () => {
       "2026-11-01",
       "2026-10-31",
     ]);
+  });
+});
+
+describe("isYear", () => {
+  it("現実的な範囲の整数だけ通す", () => {
+    expect(isYear(2026)).toBe(true);
+    expect(isYear(2000)).toBe(true);
+    expect(isYear(2100)).toBe(true);
+  });
+
+  it("範囲外と整数でない値を弾く", () => {
+    expect(isYear(1999)).toBe(false);
+    expect(isYear(2101)).toBe(false);
+    expect(isYear(2026.5)).toBe(false);
+    expect(isYear(Number.NaN)).toBe(false);
+    expect(isYear("2026")).toBe(false);
+    expect(isYear(null)).toBe(false);
+  });
+});
+
+describe("parseYear", () => {
+  const now = new Date("2026-11-09T12:00:00+09:00");
+
+  it("文字列の年を数値にする", () => {
+    expect(parseYear("2025", now)).toBe(2025);
+  });
+
+  // URL は利用者が自由に書き換えられる。落ちずに今年に寄せる（AC-7 と同じ方針）
+  it("不正な値は今年にする", () => {
+    expect(parseYear("abc", now)).toBe(2026);
+    expect(parseYear("", now)).toBe(2026);
+    expect(parseYear(undefined, now)).toBe(2026);
+    expect(parseYear("1800", now)).toBe(2026);
+    expect(parseYear("99999999", now)).toBe(2026);
+    expect(parseYear("2026.5", now)).toBe(2026);
+  });
+});
+
+describe("yearRange", () => {
+  it("UTC 0 時の境界を返す", () => {
+    const { start, nextStart } = yearRange(2026);
+    expect(start.toISOString()).toBe("2026-01-01T00:00:00.000Z");
+    expect(nextStart.toISOString()).toBe("2027-01-01T00:00:00.000Z");
+  });
+});
+
+describe("monthsOfYear", () => {
+  it("1 月から 12 月を順に返す", () => {
+    const months = monthsOfYear(2026);
+    expect(months).toHaveLength(12);
+    expect(months[0]).toBe("2026-01");
+    expect(months[11]).toBe("2026-12");
+  });
+
+  it("月は 2 桁でゼロ埋めする", () => {
+    expect(monthsOfYear(2026)[8]).toBe("2026-09");
+  });
+});
+
+describe("yearOf", () => {
+  it("月から年を取り出す", () => {
+    expect(yearOf("2026-11")).toBe(2026);
+    expect(yearOf("2025-01")).toBe(2025);
+  });
+});
+
+describe("formatMonthShort", () => {
+  it("年を省いて月だけにする", () => {
+    expect(formatMonthShort("2026-01")).toBe("1月");
+    expect(formatMonthShort("2026-12")).toBe("12月");
   });
 });

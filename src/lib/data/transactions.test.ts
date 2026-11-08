@@ -14,6 +14,7 @@ import {
   getTransaction,
   listCategories,
   listTransactionsByMonth,
+  listTransactionsByYear,
   updateTransactionForMe,
 } from "./transactions";
 
@@ -152,6 +153,65 @@ describe("記録の DAL", () => {
   });
 
   // ---------------------------------------------------------------------
+  describe("listTransactionsByYear", () => {
+    it("その年の記録を返す", async () => {
+      as(a.member);
+      const rows = await listTransactionsByYear(2026);
+      expect(rows.map((r) => r.id)).toEqual([aTransactionId]);
+    });
+
+    it("★ 他世帯の記録を返さない", async () => {
+      as(b.member);
+      const rows = await listTransactionsByYear(2026);
+      expect(rows.map((r) => r.id)).not.toContain(aTransactionId);
+    });
+
+    it("別の年の記録を返さない", async () => {
+      as(a.member);
+      expect(await listTransactionsByYear(2025)).toHaveLength(0);
+    });
+
+    it("1 月 1 日と 12 月 31 日を含む（境界）", async () => {
+      for (const dateKey of ["2026-01-01", "2026-12-31"]) {
+        await prisma.transaction.create({
+          data: {
+            householdId: a.householdId,
+            kind: "expense",
+            amount: 100,
+            occurredOn: new Date(`${dateKey}T00:00:00.000Z`),
+            createdById: a.member.profileId,
+          },
+        });
+      }
+      as(a.member);
+      // seed の 1 件 + 境界の 2 件
+      expect(await listTransactionsByYear(2026)).toHaveLength(3);
+    });
+
+    it("前年の 12 月 31 日と翌年の 1 月 1 日は含まない（境界）", async () => {
+      for (const dateKey of ["2025-12-31", "2027-01-01"]) {
+        await prisma.transaction.create({
+          data: {
+            householdId: a.householdId,
+            kind: "expense",
+            amount: 100,
+            occurredOn: new Date(`${dateKey}T00:00:00.000Z`),
+            createdById: a.member.profileId,
+          },
+        });
+      }
+      as(a.member);
+      expect(await listTransactionsByYear(2026)).toHaveLength(1);
+    });
+
+    it("カテゴリと支払った人の名前を含む（内訳に使う）", async () => {
+      as(a.member);
+      const rows = await listTransactionsByYear(2026);
+      expect(rows[0]?.category?.name).toBe("食費");
+      expect(rows[0]?.paidBy?.displayName).toBeTruthy();
+    });
+  });
+
   describe("listCategories", () => {
     it("自分の世帯の、種別が一致するカテゴリを返す", async () => {
       as(a.member);

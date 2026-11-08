@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { Home, Plus, Settings } from "lucide-react";
+import { CalendarRange, Home, Plus, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -20,11 +20,17 @@ import { cn } from "@/lib/utils";
 const TABS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "ホーム", icon: Home },
   { href: "/new", label: "記録する", icon: Plus },
+  { href: "/year", label: "年", icon: CalendarRange },
   { href: "/settings", label: "設定", icon: Settings },
 ];
 
 export function BottomTabs() {
-  const pathname = usePathname();
+  /*
+   * **型は `string` だが、実行時に null が返ることがある。**
+   * App Router の文脈の外（`react-dom/server` での単体描画など）では
+   * null になり、`startsWith` で落ちる。煙テストで踏んだ。
+   */
+  const pathname = usePathname() ?? "";
 
   return (
     <nav
@@ -34,7 +40,11 @@ export function BottomTabs() {
       {/* セーフエリア（iPhone のホームバー）に潜らせない */}
       <ul className="mx-auto flex w-full max-w-[480px] items-stretch px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
         {TABS.map((tab) => {
-          const current = pathname === tab.href;
+          // 年のページは `/year/2026` のように年が付くので前方一致
+          const current =
+            tab.href === "/year"
+              ? pathname.startsWith("/year")
+              : pathname === tab.href;
           return (
             <li key={tab.href} className="flex-1">
               <Link

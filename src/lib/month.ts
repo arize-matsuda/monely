@@ -54,6 +54,59 @@ export function monthRange(month: Month): { start: Date; nextStart: Date } {
   };
 }
 
+/** 年として妥当か。記録として現実的な範囲に限る */
+export function isYear(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= MIN_YEAR &&
+    value <= MAX_YEAR
+  );
+}
+
+/** 現実的な年の範囲。URL に巨大な数を入れられても 12 か月ぶん以上は引かない */
+const MIN_YEAR = 2000;
+const MAX_YEAR = 2100;
+
+/**
+ * URL の年を解釈する。不正な値は今年として扱う（`?m=abc` と同じ方針。AC-7）。
+ *
+ * **`now` は必須**（coding-standards §8.0）。
+ */
+export function parseYear(value: unknown, now: Date): number {
+  const year = typeof value === "string" ? Number(value) : value;
+  return isYear(year) ? year : now.getFullYear();
+}
+
+/**
+ * 年の範囲。`occurredOn` の検索に使う。
+ * **UTC 0 時の境界**を返す（`@db.Date` の値と揃える）。
+ */
+export function yearRange(year: number): { start: Date; nextStart: Date } {
+  return {
+    start: new Date(Date.UTC(year, 0, 1)),
+    nextStart: new Date(Date.UTC(year + 1, 0, 1)),
+  };
+}
+
+/** その年の 12 か月を 1 月から順に返す */
+export function monthsOfYear(year: number): Month[] {
+  return Array.from(
+    { length: 12 },
+    (_, index) => `${year}-${pad(index + 1)}` as Month,
+  );
+}
+
+/** `"2026-11"` → 2026 */
+export function yearOf(month: Month): number {
+  return splitMonth(month)[0];
+}
+
+/** `"2026-11"` → `"11月"`（年のページでは年が見出しに出ているので省く） */
+export function formatMonthShort(month: Month): string {
+  return `${splitMonth(month)[1]}月`;
+}
+
 export function prevMonth(month: Month): Month {
   const [year, m] = splitMonth(month);
   return m === 1 ? `${year - 1}-12` : `${year}-${pad(m - 1)}`;

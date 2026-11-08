@@ -1,7 +1,14 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { Home, Plus, Settings, Tags, Wallet } from "lucide-react";
+import {
+  CalendarRange,
+  Home,
+  Plus,
+  Settings,
+  Tags,
+  Wallet,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -20,6 +27,7 @@ import { cn } from "@/lib/utils";
 const ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "ホーム", icon: Home },
   { href: "/new", label: "記録する", icon: Plus },
+  { href: "/year", label: "年の一覧", icon: CalendarRange },
   { href: "/settings/categories", label: "カテゴリ", icon: Tags },
   { href: "/settings", label: "設定", icon: Settings },
 ];
@@ -31,7 +39,12 @@ export function AppSidebar({
   householdName: string;
   displayName: string;
 }) {
-  const pathname = usePathname();
+  /*
+   * **型は `string` だが、実行時に null が返ることがある。**
+   * App Router の文脈の外（`react-dom/server` での単体描画など）では
+   * null になり、`startsWith` で落ちる。煙テストで踏んだ。
+   */
+  const pathname = usePathname() ?? "";
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-border bg-card/40 px-3 py-5 md:flex">
@@ -50,8 +63,15 @@ export function AppSidebar({
       <nav aria-label="メインメニュー">
         <ul className="flex flex-col gap-1">
           {ITEMS.map((item) => {
-            // 「設定」は配下のページ（カテゴリ）と取り違えないよう完全一致で見る
-            const current = pathname === item.href;
+            /*
+             * 現在地の判定。
+             * 「設定」は配下のページ（カテゴリ）と取り違えないよう完全一致。
+             * 「年の一覧」は `/year/2026` のように年が付くので前方一致。
+             */
+            const current =
+              item.href === "/year"
+                ? pathname.startsWith("/year")
+                : pathname === item.href;
             return (
               <li key={item.href}>
                 <Link

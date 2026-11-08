@@ -80,6 +80,7 @@
 | [**ADR-0007**](./05-decisions/ADR-0007-better-auth.md) | **認証基盤を Supabase Auth から better-auth に移す** | 採用 |
 | [ADR-0008](./05-decisions/ADR-0008-shadcn-ui.md) | UI コンポーネントに shadcn/ui（Radix ベース）を採用する | 採用 |
 | [**ADR-0009**](./05-decisions/ADR-0009-desktop-layout-and-category-breakdown.md) | **PC を独立したレイアウトにし、カテゴリ別の内訳を v1 に入れる** | 採用 |
+| [ADR-0010](./05-decisions/ADR-0010-year-page.md) | 年のページを作り、月次の推移を v1 に入れる | 採用 |
 
 ---
 

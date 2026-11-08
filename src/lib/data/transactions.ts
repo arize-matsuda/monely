@@ -1,6 +1,6 @@
 import "server-only";
 import { requireMember } from "@/lib/auth";
-import { type Month, monthRange } from "@/lib/month";
+import { type Month, monthRange, yearRange } from "@/lib/month";
 import { type ActionResult, fail, type Kind, ok } from "@/lib/types";
 import { prisma } from "./db";
 
@@ -36,6 +36,27 @@ export async function listTransactionsByMonth(month: Month) {
   return prisma.transaction.findMany({
     where: {
       householdId: me.householdId, // ← 認可。絶対に外さない
+      occurredOn: { gte: start, lt: nextStart },
+    },
+    orderBy: [{ occurredOn: "desc" }, { createdAt: "desc" }],
+    include: LIST_INCLUDE,
+  });
+}
+
+/**
+ * 年のページ用（FR-L10）。その年の記録をすべて返す。
+ *
+ * **集計は SQL で行わない。** 月別の合計は `summarizeYear`（純関数）が
+ * 担う。集計用のクエリを足すと `householdId` の条件を書き忘れうる場所が
+ * 1 つ増える（ADR-0005 の約束 B / ADR-0010）。
+ * 家族の家計簿なら 1 年で数百件なので、行ごと取っても軽い。
+ */
+export async function listTransactionsByYear(year: number) {
+  const me = await requireMember();
+  const { start, nextStart } = yearRange(year);
+  return prisma.transaction.findMany({
+    where: {
+      householdId: me.householdId,
       occurredOn: { gte: start, lt: nextStart },
     },
     orderBy: [{ occurredOn: "desc" }, { createdAt: "desc" }],
