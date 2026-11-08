@@ -127,7 +127,15 @@ export function TransactionForm({
               // biome-ignore lint/a11y/noAutofocus: 開いた瞬間に金額を打てることが最優先（NFR-U2）
               autoFocus
               inputMode="numeric"
-              pattern="[0-9]*"
+              /*
+               * **pattern を付けてはいけない。** この欄は 3 桁区切りで
+               * 「1,280」と表示するので、pattern="[0-9]*" を付けると
+               * 1,000 円以上でブラウザが「指定されている形式で入力して
+               * ください」と出して送信を止める（999 円以下は通るので
+               * 気づきにくい）。
+               * 数値キーボードは inputMode="numeric" だけで開く。
+               * 実際の検証はサーバーの parseAmount が行う。
+               */
               autoComplete="off"
               value={display}
               onChange={(event) => setAmount(event.target.value)}
