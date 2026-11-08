@@ -423,6 +423,10 @@ flowchart TD
 
 このスクリプトには **`type` をサーバーとクライアントで変える**仕掛けが要る。クライアントの描画で `<script>` を作っても実行されないため、React が開発時にエラーを出す。Server Action のあとに `refresh()` を呼ぶとルートレイアウトまで再描画されてこの経路に入る（実際に踏んだ）。サーバーでは `text/javascript`、クライアントでは `text/plain` にして、食い違いは `suppressHydrationWarning` で黙らせる。
 
+**この仕掛けには `"use client"` が必要。** Server Component だと `typeof window` はサーバーでしか評価されず、RSC ペイロードに `text/javascript` が載ったままクライアントに渡るので、同じエラーになる（1 度これで直し損ねた）。Client Component にすると、バンドラが `typeof window` を静的に解決してクライアント側は `text/plain` 固定になる。
+
+React 側の判定は `react-dom` の `isScriptDataBlock`：`type` が JavaScript の MIME 一覧（`text/javascript` など）と `module` / `importmap` / `speculationrules` のいずれでもなければ警告しない。
+
 また開発時は React の Strict Mode が 1 度再マウントし、そのとき `<html>` の属性を **JSX に書かれているものだけ**に戻す。スクリプトが付けた `data-theme` は消えるので、`ThemeSync`（`useLayoutEffect`）で貼り直す。
 
 保存先は `localStorage`（キー `monely-theme`）。**端末ごとの設定**で、サーバーにも他の端末にも共有されない。書き込みに失敗しても表示は切り替わる。
@@ -532,7 +536,8 @@ pnpm check:contrast
 | `TransactionForm` | `components/` | **Client** | 金額・種別・カテゴリの状態を持つ |
 | `DeleteTransaction` | `components/` | **Client** | 確認を自前の状態で出す（ダイアログを使わない） |
 | `ThemeToggle` | `components/theme/` | **Client** | localStorage を読む |
-| `ThemeScript` | `components/theme/` | Server | `<head>` のインラインスクリプト |
+| `ThemeScript` | `components/theme/` | **Client** | `<head>` のインラインスクリプト。**`"use client"` が必須**（下記） |
+| `ThemeSync` | `components/theme/` | **Client** | 開発時に `data-theme` が外れたら貼り直す |
 
 **既定は Server Component。** 操作の状態を持つものだけ `"use client"` にする（→ [アーキテクチャ §3.2](./architecture.md#32-server--client-の境界)）。
 

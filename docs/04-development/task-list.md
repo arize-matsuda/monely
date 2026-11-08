@@ -382,6 +382,7 @@ Scripts inside React components are never executed when rendering on the client.
 | 原因 | M4-2 / M4-7 で Server Action に `refresh()` を 5 箇所足した。**`refresh()` はルートレイアウトまでクライアントで再描画する**ので、`<head>` のインラインスクリプトが「クライアント描画された `<script>`」になり、React が開発時エラーを出す |
 | 症状 | **エラーオーバーレイで画面が見えない。** サーバーの HTML は正しいので、HTTP で叩くと 200 が返り気づけない |
 | 直し方 | Next.js 公式ガイドの手順。`type` をサーバーで `text/javascript`、クライアントで `text/plain` にし、食い違いを `suppressHydrationWarning` で黙らせる |
+| **1 度直し損ねた** | `type` の仕掛けだけ入れて `"use client"` を付けなかった。Server Component では `typeof window` がサーバーでしか評価されず、RSC ペイロードに `text/javascript` が載ったまま渡るので**症状が変わらない**。公式ガイドの例が Client Component の中にあることを読み落としていた |
 
 **ついでに同じガイドに書かれていた別の落とし穴も塞いだ。** 開発時は React の
 Strict Mode が 1 度再マウントし、そのとき `<html>` の属性を JSX にあるものだけに

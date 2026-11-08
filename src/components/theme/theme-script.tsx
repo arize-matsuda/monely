@@ -1,3 +1,5 @@
+"use client";
+
 import { THEME_STORAGE_KEY } from "./theme";
 
 /**
@@ -30,6 +32,11 @@ export function ThemeScript() {
        * クライアントでは text/plain（実行されない代わりにエラーも出ない）。
        * type の食い違いは suppressHydrationWarning で黙らせる。
        * → 上記の公式ガイド「Extracting a reusable component」
+       *
+       * **この仕掛けのために "use client" が要る。** Server Component だと
+       * typeof window はサーバーでしか評価されず、RSC ペイロードには
+       * text/javascript が載ったままになる。クライアントがそれを描画した
+       * 時点で同じエラーになる（1 度これで直し損ねた）。
        */
       type={typeof window === "undefined" ? "text/javascript" : "text/plain"}
       suppressHydrationWarning
