@@ -1,5 +1,6 @@
 import { createTransaction } from "@/actions/transactions";
 import { TransactionForm } from "@/components/transaction-form";
+import { FormPageHeader } from "@/components/ui/form-page-header";
 import { requireMember } from "@/lib/auth";
 import { requestNow } from "@/lib/clock";
 import { listMembers } from "@/lib/data/household";
@@ -28,9 +29,7 @@ export default async function NewTransactionPage() {
 
   return (
     <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-6">
-      <h1 className="mb-5 font-heading text-xl font-semibold tracking-tight">
-        記録する
-      </h1>
+      <FormPageHeader title="記録する" />
       <TransactionForm
         action={createTransaction}
         categories={[...expense, ...income]}

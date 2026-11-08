@@ -1,6 +1,6 @@
-import { ArrowLeft, Home, KeyRound, Palette, Users } from "lucide-react";
-import Link from "next/link";
+import { Home, KeyRound, Palette, Users } from "lucide-react";
 import { signOut } from "@/actions/auth";
+import { BottomTabs } from "@/components/bottom-tabs";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,18 +39,10 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 px-4 py-8">
-      <div className="flex items-center justify-between">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          設定
-        </h1>
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/">
-            <ArrowLeft aria-hidden />
-            ホーム
-          </Link>
-        </Button>
-      </div>
+    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 px-4 pt-8 pb-28">
+      <h1 className="font-heading text-2xl font-semibold tracking-tight">
+        設定
+      </h1>
 
       <Card>
         <CardHeader>
@@ -147,6 +139,8 @@ export default async function SettingsPage() {
           ログアウト
         </Button>
       </form>
+
+      <BottomTabs />
     </main>
   );
 }

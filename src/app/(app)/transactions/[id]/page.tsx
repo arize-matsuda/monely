@@ -12,6 +12,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { FormPageHeader } from "@/components/ui/form-page-header";
 import { listMembers } from "@/lib/data/household";
 import { getTransaction, listCategories } from "@/lib/data/transactions";
 import { toDateKey } from "@/lib/month";
@@ -71,9 +72,7 @@ export default async function EditTransactionPage({
 
   return (
     <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-6">
-      <h1 className="mb-5 font-heading text-xl font-semibold tracking-tight">
-        記録の編集
-      </h1>
+      <FormPageHeader title="記録の編集" />
       <TransactionForm
         action={updateTransaction}
         categories={[...expense, ...income]}

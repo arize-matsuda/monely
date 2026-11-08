@@ -30,6 +30,7 @@
 | --- | --- |
 | **進行中のマイルストーン** | **M3（記録と一覧 = v1 の本体）** |
 | **次にやること** | M3-17〜20 受入条件の確認（**手作業**。実際に記録してみる） |
+| **UI の満足度** | 2026-11-08 shadcn 化後も「まだ良いとは思えない」との評価。**M4 で継続して見直す**（具体的な不満点は未特定） |
 | **方針変更** | 2026-11-07 認可をアプリ層へ（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）/ 2026-11-08 認証をメール+パスワードへ（[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）/ 同日 認証基盤を better-auth へ（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)）/ 同日 UI に shadcn/ui を採用（[ADR-0008](../05-decisions/ADR-0008-shadcn-ui.md)） |
 | **ブロッカー** | なし |
 
@@ -430,7 +431,10 @@ Next.js encountered the unstable value new Date() while prerendering.
 
 ### 未着手
 
-- [ ] M4-1 下部タブ（セーフエリア対応）
+- [x] M4-1 下部タブ（セーフエリア対応）（2026-11-08）
+  - ホームと設定に置く。**`/new` と編集画面には置かない**（下部は保存ボタンの場所）
+  - その 2 画面は左上に ✕（`FormPageHeader`）。ワイヤー §4.2 の通りにした
+  - フォーム下部の「やめる」は ✕ に集約して削除
 - [ ] M4-2 `/settings` — 世帯名の変更
 - [ ] M4-3 `/settings` — 招待コードの表示
 - [ ] M4-4 `/settings` — メンバー一覧

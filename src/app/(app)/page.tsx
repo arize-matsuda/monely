@@ -1,10 +1,8 @@
-import { Plus, Settings } from "lucide-react";
-import Link from "next/link";
+import { BottomTabs } from "@/components/bottom-tabs";
 import { EmptyMonth } from "@/components/empty-month";
 import { MonthSummary } from "@/components/month-summary";
 import { MonthSwitcher } from "@/components/month-switcher";
 import { TransactionList } from "@/components/transaction-list";
-import { Button } from "@/components/ui/button";
 import { requestNow } from "@/lib/clock";
 import { listTransactionsByMonth } from "@/lib/data/transactions";
 import { summarize } from "@/lib/money";
@@ -48,22 +46,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         )}
       </div>
 
-      {/* M4 で下部タブに置き換える。それまでは画面下の固定ボタン */}
-      <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-[480px] items-center gap-3 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <Button asChild size="lg" className="flex-1">
-            <Link href="/new">
-              <Plus aria-hidden />
-              記録する
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="icon-lg">
-            <Link href="/settings" aria-label="設定">
-              <Settings aria-hidden />
-            </Link>
-          </Button>
-        </div>
-      </div>
+      <BottomTabs />
     </main>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { Check, ChevronDown, CircleAlert } from "lucide-react";
-import Link from "next/link";
 import { useActionState, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -251,13 +250,10 @@ export function TransactionForm({
         </Card>
       </Collapsible>
 
-      {/* 画面下部（親指が届く位置） */}
+      {/* 画面下部（親指が届く位置）。やめるときは左上の ✕ */}
       <div className="flex flex-col gap-2">
         <Button type="submit" size="lg" disabled={pending || !canSubmit}>
           {pending ? pendingLabel : submitLabel}
-        </Button>
-        <Button asChild variant="ghost">
-          <Link href="/">やめる</Link>
         </Button>
         {footer}
       </div>
