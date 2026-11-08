@@ -140,6 +140,52 @@ describe("ホーム画面の部品", () => {
     expect(html).toContain("スーパー");
   });
 
+  // 一覧で種別を一目で見分けられるようにする（UI/UX設計 §6.3）
+  it("★ TransactionRow は支出を赤、収入を緑で出す", () => {
+    const expense = renderToStaticMarkup(
+      <TransactionRow
+        id="t1"
+        kind="expense"
+        amount={1280}
+        memo={null}
+        categoryName="食費"
+        paidByName={null}
+      />,
+    );
+    expect(expense).toContain("text-deficit");
+    expect(expense).not.toContain("text-income");
+
+    const income = renderToStaticMarkup(
+      <TransactionRow
+        id="t2"
+        kind="income"
+        amount={320000}
+        memo={null}
+        categoryName="給与"
+        paidByName={null}
+      />,
+    );
+    expect(income).toContain("text-income");
+    expect(income).not.toContain("text-deficit");
+  });
+
+  // 削除ボタンの赤を調整したときに金額の色が連動しないようにしている
+  it("支出の赤は --destructive ではなく --deficit を使う", () => {
+    const html = renderToStaticMarkup(
+      <TransactionRow
+        id="t1"
+        kind="expense"
+        amount={1280}
+        memo={null}
+        categoryName="食費"
+        paidByName={null}
+      />,
+    );
+    // Badge の基底クラスに aria-invalid:*-destructive が入るので、
+    // 文字色として使われていないことだけを見る
+    expect(html).not.toContain("text-destructive");
+  });
+
   it("TransactionRow はカテゴリが無ければ「未分類」", () => {
     const html = renderToStaticMarkup(
       <TransactionRow

@@ -47,10 +47,18 @@ export function TransactionRow({
         ) : null}
       </span>
 
+      {/*
+        **支出は赤、収入は緑。** 一覧で種別を一目で見分けられるようにする
+        （UI/UX設計 §6.3。当初は「支出を赤にしない」方針だったが、
+        実際に使って見分けづらいと判断して 2026-11-09 に変えた）。
+
+        赤は --destructive（削除ボタン）ではなく --deficit を使う。
+        削除の赤を調整したときに金額の色が連動して変わらないようにしている。
+      */}
       <span
         className={cn(
           "shrink-0 text-base font-medium tabular-nums",
-          kind === "income" && "text-income",
+          kind === "income" ? "text-income" : "text-deficit",
         )}
       >
         {formatAmount(amount, kind)}
