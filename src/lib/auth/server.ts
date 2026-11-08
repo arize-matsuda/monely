@@ -2,6 +2,7 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
 import { magicLink } from "better-auth/plugins/magic-link";
+import { resolveBaseURL } from "@/lib/base-url";
 import { authDatabaseAdapter } from "@/lib/data/auth-adapter";
 import { sendMail } from "@/lib/email";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/validation";
@@ -30,7 +31,13 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+/*
+ * URL の決め方と検証は src/lib/base-url.ts に出してある。
+ * **不正な値だと better-auth が起動時に落ちる**（`Invalid base URL: e`）ため、
+ * どの環境変数が悪いのか分かるメッセージにしている。
+ * Vercel では BETTER_AUTH_URL を設定しなくても本番ドメインから組み立てる。
+ */
+const baseURL = resolveBaseURL(process.env);
 
 export const auth = betterAuth({
   appName: "Monely",

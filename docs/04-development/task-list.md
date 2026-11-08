@@ -627,6 +627,12 @@ Next.js encountered the unstable value new Date() while prerendering.
 ### 未着手
 
 - [x] M5-1 **デプロイ先を決める** → **Vercel**（2026-11-09）
+- [x] M5-1c **baseURL の決め方を直す**（2026-11-09）
+  - **本番で `Invalid base URL: e` に当たった。** 「初回は仮の値でもよい」という私の案内が誤りで、better-auth は起動時に URL を検証する
+  - `src/lib/base-url.ts` を追加。`BETTER_AUTH_URL` → `VERCEL_PROJECT_PRODUCTION_URL` → localhost の順。**Vercel では設定不要になった**
+  - 不正な値は**どの環境変数が悪いか名指しして**落とす（テスト 11 件）
+  - `VERCEL_URL` は使わない（デプロイごとに変わり、メールのリンクが切れる）
+
 - [x] M5-1b ビルドで `prisma generate` が走るようにする（2026-11-09）
   - `src/generated/` は gitignore しているので、**これが無いと Vercel のビルドは必ず失敗する**
   - `prisma.config.ts` が `env("DIRECT_URL")` を即時解決するため、`postinstall` ではなく `build` に置く（`DIRECT_URL` 無しで `prisma generate` が失敗することを実測）

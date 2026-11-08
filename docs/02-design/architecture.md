@@ -328,7 +328,7 @@ node -e 'import("better-auth/db").then(m => console.log(m.getAuthTables(options)
 | `DATABASE_URL` | アプリのクエリ（Transaction pooler, 6543） | **非公開。DB の全権を持つ** |
 | `DIRECT_URL` | マイグレーション（Session pooler, 5432） | **非公開。DB の全権を持つ** |
 | `BETTER_AUTH_SECRET` | セッションの署名鍵 | **非公開。漏れるとセッションを偽造できる** |
-| `BETTER_AUTH_URL` | アプリの URL（リンクの組み立てに使う） | 公開してよい |
+| `BETTER_AUTH_URL` | アプリの URL（リンクの組み立てに使う）。**未設定なら Vercel の本番ドメイン → localhost の順に決まる**（§8.2） | 公開してよい |
 | `RESEND_API_KEY` | メール送信。**未設定なら開発モード（コンソール出力）** | 非公開 |
 | `TZ` | **`Asia/Tokyo` 固定。**「今日 / 昨日」の判定に使う（NFR-D8） | 公開してよい |
 | `MAIL_FROM` | 送信元アドレス | 公開してよい |
@@ -367,9 +367,31 @@ node -e 'import("better-auth/db").then(m => console.log(m.getAuthTables(options)
 | --- | --- |
 | `DATABASE_URL` | Transaction pooler（**6543**）。サーバーレスでは接続数が増えるのでこちらが必須 |
 | `DIRECT_URL` | Session pooler（5432）。ビルド時の `prisma generate` とマイグレーションで使う |
-| `BETTER_AUTH_URL` | **本番の URL**（`https://<project>.vercel.app` など）。ローカルの値のままだとメールのリンクが localhost を指す |
+| `BETTER_AUTH_URL` | **設定しなくてよい。** Vercel が渡す `VERCEL_PROJECT_PRODUCTION_URL` から組み立てる。独自ドメインを使うときだけ明示する |
 | `TZ` | `Asia/Tokyo`（下記の注意） |
 | `RESEND_API_KEY` / `MAIL_FROM` | **家族を招待する前に必須。** 未設定だとサーバーのコンソールに確認リンクが出るだけで、誰も登録を完了できない |
+
+#### URL は設定しなくてよい（`src/lib/base-url.ts`）
+
+better-auth はこの値をメールのリンクと `callbackURL` の検証に使い、
+**不正な値だと起動時に落ちる。**
+
+優先順位は次のとおり。**Vercel では 2 番目が自動で効く**ので、
+独自ドメインを使うまで `BETTER_AUTH_URL` を設定する必要が無い。
+
+| 優先 | 変数 | 備考 |
+| --- | --- | --- |
+| 1 | `BETTER_AUTH_URL` | 独自ドメインを使う場合に明示する |
+| 2 | `VERCEL_PROJECT_PRODUCTION_URL` | **Vercel が自動で渡す。** プロトコルを含まないので `https://` を付ける |
+| 3 | `http://localhost:3000` | ローカル |
+
+**`VERCEL_URL` は使わない。** デプロイごとに変わる URL で、メールのリンクに
+入れると過去のリンクが切れ、Cookie のオリジンもずれる。
+
+> **実際に踏んだ失敗（2026-11-09）。** 「初回は仮の値でもよい」という案内に
+> 従って `BETTER_AUTH_URL=e` を入れたところ、better-auth が
+> `Invalid base URL: e` で起動時に落ちた。**仮の値を許す設計ではない。**
+> いまは値を検証し、どの環境変数が悪いのかを名指しするメッセージにしてある。
 
 #### `TZ` が最大のリスク（NFR-D8 / NFR-O7）
 
