@@ -111,6 +111,9 @@ export function parseInviteCode(
   return ok(code);
 }
 
+/** カテゴリ名の上限。schema.prisma の @db.VarChar(20) と合わせる */
+export const MAX_CATEGORY_NAME = 20;
+
 export const MAX_AMOUNT = 9_999_999;
 
 /** 金額。1 以上の整数（円）。全角数字と桁区切りを許容する */

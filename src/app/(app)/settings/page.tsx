@@ -1,4 +1,12 @@
-import { Home, KeyRound, Palette, Users } from "lucide-react";
+import {
+  ChevronRight,
+  Home,
+  KeyRound,
+  Palette,
+  Tags,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
 import { signOut } from "@/actions/auth";
 import { renameHousehold, renameMe } from "@/actions/household";
 import { BottomTabs } from "@/components/bottom-tabs";
@@ -121,6 +129,20 @@ export default async function SettingsPage() {
             <dd className="truncate">{me.email}</dd>
           </dl>
         </CardContent>
+      </Card>
+
+      {/* カテゴリは行ごとに操作が付くので別ページにした（UI/UX設計 §4.6） */}
+      <Card className="[--card-spacing:--spacing(0)]">
+        <Link
+          href="/settings/categories"
+          className="flex min-h-14 items-center gap-2 px-4 transition-colors hover:bg-muted/60"
+        >
+          <Tags className="size-4 text-muted-foreground" aria-hidden />
+          <span className="flex-1 font-heading text-base font-medium">
+            カテゴリの管理
+          </span>
+          <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+        </Link>
       </Card>
 
       <Card>

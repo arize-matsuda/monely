@@ -466,7 +466,12 @@ Next.js encountered the unstable value new Date() while prerendering.
 > その認可テストが M2 の時点で揃っていた。足したのは Server Action
 > （`renameHousehold` / `renameMe`）と UI（`InlineRename`）だけ。
 > 画面に残るので `redirect` せず `refresh()` で再描画する。
-- [ ] M4-7 カテゴリ管理（追加・改名・非表示）
+- [x] M4-7 カテゴリ管理（追加・改名・非表示）（2026-11-08）
+  - `/settings/categories` として**別ページにした**（UI/UX設計 §4.6 の「M4 で決める」の判断）。行ごとに改名と非表示の操作が付くので、設定画面に折りたたむと縦に長くなりすぎる
+  - DAL `src/lib/data/categories.ts` + **認可テスト 17 件**
+  - **削除は作らない。** 消すと過去の記録のカテゴリ名が失われる（FR-C6）
+  - 同名の追加・改名は一意制約（P2002）を拾って項目エラーにする
+  - 新しいカテゴリは「その他」（sortOrder 999）の手前に入る
 - [x] M4-8 カテゴリの並びを直近 30 日の使用頻度順に（2026-11-08）
   - `listCategories(kind, usageSince)`。`groupBy` で使用回数を数え、回数の多い順 → `sortOrder` → 名前
   - **集計期間の下限は必須引数**（`daysAgo(await requestNow(), 30)`）。既定引数で時計を読まない（§8.0）
