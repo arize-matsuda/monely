@@ -78,7 +78,7 @@ export default async function EditTransactionPage({
   ]);
 
   return (
-    <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-6">
+    <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-6 md:py-10">
       <FormPageHeader title="記録の編集" />
       <TransactionForm
         action={updateTransaction}

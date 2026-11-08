@@ -1,4 +1,6 @@
+import { AppSidebar } from "@/components/app-sidebar";
 import { requireMember } from "@/lib/auth";
+import { getMyHousehold } from "@/lib/data/household";
 
 /**
  * 認証後の画面の共通レイアウト。
@@ -9,6 +11,9 @@ import { requireMember } from "@/lib/auth";
  * **これは UX のための振り分けで、データの守りではない。**
  * データの認可は src/lib/data/ の where 句。
  * → docs/03-guidelines/security-guidelines.md §2
+ *
+ * PC ではサイドバーを横に置く（ADR-0009）。スマホでは出さず、
+ * 下部タブ（`BottomTabs`）に任せる。
  */
 
 // この配下はすべて個人データで、静的に先出しできる部分が無い。
@@ -17,6 +22,16 @@ import { requireMember } from "@/lib/auth";
 export const instant = false;
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
-  await requireMember();
-  return <>{children}</>;
+  const me = await requireMember();
+  const household = await getMyHousehold();
+
+  return (
+    <div className="flex flex-1">
+      <AppSidebar
+        householdName={household?.name ?? "わが家"}
+        displayName={me.displayName}
+      />
+      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+    </div>
+  );
 }

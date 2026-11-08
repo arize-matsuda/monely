@@ -98,6 +98,16 @@ const pairs = [
   ["secondary-foreground", "secondary", "副ボタンの文字", 4.5],
   ["accent-foreground", "accent", "ホバー時の文字", 4.5],
   ["primary", "background", "UI 部品としての主要色", 3],
+  /*
+   * グラフの棒。数値は文字でも出しているので棒自体は装飾だが、
+   * 下地（--muted）と区別できないと「どこまで伸びているか」が読めない。
+   * 非テキストの基準 3:1 を課す。
+   */
+  ["chart-1", "muted", "グラフの棒 1 / 下地", 3],
+  ["chart-2", "muted", "グラフの棒 2 / 下地", 3],
+  ["chart-3", "muted", "グラフの棒 3 / 下地", 3],
+  ["chart-4", "muted", "グラフの棒 4 / 下地", 3],
+  ["chart-5", "muted", "グラフの棒 5 / 下地", 3],
 ];
 
 /** sRGB の 0..1 を #rrggbb にする（ガンマ補正をかける） */

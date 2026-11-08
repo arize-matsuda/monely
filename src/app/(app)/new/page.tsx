@@ -30,7 +30,7 @@ export default async function NewTransactionPage() {
   ]);
 
   return (
-    <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-6">
+    <main className="mx-auto w-full max-w-[480px] flex-1 px-4 py-6 md:py-10">
       <FormPageHeader title="記録する" />
       <TransactionForm
         action={createTransaction}

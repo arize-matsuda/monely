@@ -49,7 +49,7 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 px-4 pt-8 pb-28">
+    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 px-4 pt-8 pb-28 md:max-w-3xl md:px-8 md:pb-10">
       <h1 className="font-heading text-2xl font-semibold tracking-tight">
         設定
       </h1>

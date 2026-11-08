@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 /**
  * 下部タブ（UI/UX設計 §4.1, §4.6）。
  *
+ * **PC では出さない**（`md` 以上で非表示）。横のサイドバーに任せる。
+ *
  * **置くのはホームと設定だけ。** `/new` と編集画面には置かない。
  * あちらは「作業を終えて戻る」画面で、下部は保存ボタンの場所
  * （タブを並べると親指の下で操作が競合する）。
@@ -27,7 +29,7 @@ export function BottomTabs() {
   return (
     <nav
       aria-label="メインメニュー"
-      className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-background/85 backdrop-blur-md"
+      className="fixed inset-x-0 bottom-0 z-10 border-t border-border bg-background/85 backdrop-blur-md md:hidden"
     >
       {/* セーフエリア（iPhone のホームバー）に潜らせない */}
       <ul className="mx-auto flex w-full max-w-[480px] items-stretch px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">

@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { TransactionRow as Row } from "@/lib/data/transactions";
+import { AppSidebar } from "./app-sidebar";
+import { CategoryBreakdown } from "./category-breakdown";
 import { EmptyMonth } from "./empty-month";
 import { MonthSummary } from "./month-summary";
 import { MonthSwitcher } from "./month-switcher";
@@ -123,5 +125,45 @@ describe("ホーム画面の部品", () => {
     );
     expect(html).toContain("昨日");
     expect(html).toContain("食費");
+  });
+});
+
+describe("PC 向けの部品（ADR-0009）", () => {
+  it("AppSidebar が描ける", () => {
+    const html = renderToStaticMarkup(
+      <AppSidebar householdName="わが家" displayName="たっつ" />,
+    );
+    expect(html).toContain("Monely");
+    expect(html).toContain("わが家");
+    expect(html).toContain("たっつ");
+    expect(html).toContain('href="/settings/categories"');
+    // スマホには出さない
+    expect(html).toContain("md:flex");
+  });
+
+  it("CategoryBreakdown が割合つきで描ける", () => {
+    const html = renderToStaticMarkup(
+      <CategoryBreakdown
+        rows={[
+          // categoryId を分けないと 1 つにまとまる
+          row({ amount: 7500, categoryId: "c1", category: { name: "食費" } }),
+          row({ amount: 2500, categoryId: "c2", category: { name: "交通" } }),
+        ]}
+      />,
+    );
+    expect(html).toContain("食費");
+    expect(html).toContain("¥7,500");
+    expect(html).toContain("75%");
+    expect(html).toContain("25%");
+    // 棒の色はトークン経由
+    expect(html).toContain("bg-chart-1");
+  });
+
+  it("CategoryBreakdown は支出が無ければ何も描かない", () => {
+    expect(
+      renderToStaticMarkup(
+        <CategoryBreakdown rows={[row({ kind: "income", amount: 300000 })]} />,
+      ),
+    ).toBe("");
   });
 });

@@ -35,7 +35,7 @@ export default async function CategoriesPage() {
   const income = categories.filter((c) => c.kind === "income");
 
   return (
-    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 px-4 pt-4 pb-16">
+    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 px-4 pt-4 pb-16 md:max-w-3xl md:px-8 md:pt-8">
       <div className="flex items-center gap-1">
         <Button asChild variant="ghost" size="icon" className="-ml-2">
           <Link href="/settings" aria-label="設定に戻る">
@@ -47,8 +47,11 @@ export default async function CategoriesPage() {
         </h1>
       </div>
 
-      <Section title="支出" kind="expense" categories={expense} />
-      <Section title="収入" kind="income" categories={income} />
+      {/* PC では支出と収入を横に並べる（縦に長くなるのを防ぐ） */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start">
+        <Section title="支出" kind="expense" categories={expense} />
+        <Section title="収入" kind="income" categories={income} />
+      </div>
 
       <p className="px-1 text-xs leading-relaxed text-muted-foreground">
         カテゴリは削除できません。非表示にすると新しい記録では選べなくなりますが、
