@@ -240,6 +240,7 @@ grep -rn "new Date()\|Date.now()" src --include="*.ts" --include="*.tsx" \
 - クラス名が長くなっても、条件分岐のない限り変数に逃がさない（検索性を保つ）。
 - 条件でクラスを足すときは `cn()`（`@/lib/utils`）を使う。テンプレート文字列での結合はしない（後勝ちの衝突を解決できない）。
 - **色を変えたら `pnpm check:contrast` を実行する。** WCAG AA（4.5:1、NFR-U6）の確認。目視では落ちているものに気づけない。
+- **CSS 変数を参照できない場所（`theme-color`、PWA アイコン）は 16 進数で二重に持つしかない。** その 2 つは `pnpm check:contrast` が一致を検査する。新しく 16 進数を書いたら `HEX_MIRRORS` に足す。
 
 トークン一覧 → [UI/UX設計 §6.4](../02-design/ui-ux-design.md#64-デザイントークン)
 

@@ -100,7 +100,72 @@ const pairs = [
   ["primary", "background", "UI 部品としての主要色", 3],
 ];
 
+/** sRGB の 0..1 を #rrggbb にする（ガンマ補正をかける） */
+function toHex(linearRgb) {
+  return `#${linearRgb
+    .map((channel) => {
+      const v =
+        channel <= 0.0031308
+          ? 12.92 * channel
+          : 1.055 * channel ** (1 / 2.4) - 0.055;
+      return Math.round(Math.min(1, Math.max(0, v)) * 255)
+        .toString(16)
+        .padStart(2, "0");
+    })
+    .join("")}`;
+}
+
+/**
+ * トークンと、別のファイルに**手で書いてある 16 進数**の一致を検査する。
+ *
+ * theme-color や PWA のアイコンは CSS 変数を参照できないので、
+ * 同じ色を 16 進数で二重に持つしかない。ずれると起動直後に
+ * 色が切り替わって見える（実際に 1 件ずれていた）。
+ */
+const HEX_MIRRORS = [
+  {
+    file: "src/app/layout.tsx",
+    token: "background",
+    mode: "light",
+    label: "theme-color（ライト）",
+  },
+  {
+    file: "src/app/layout.tsx",
+    token: "background",
+    mode: "dark",
+    label: "theme-color（ダーク）",
+  },
+  {
+    file: "src/app/icon.svg",
+    token: "primary",
+    mode: "light",
+    label: "アイコンの地色（SVG）",
+  },
+  {
+    file: "src/app/apple-icon.tsx",
+    token: "primary",
+    mode: "light",
+    label: "アイコンの地色（iOS）",
+  },
+];
+
 let failed = 0;
+
+console.log("=== トークンと 16 進数の一致 ===");
+for (const mirror of HEX_MIRRORS) {
+  const value = tokens[mirror.token]?.[mirror.mode];
+  const expected = value ? toHex(oklchToSrgb(value)) : null;
+  const source = readFileSync(
+    new URL(`../${mirror.file}`, import.meta.url),
+    "utf8",
+  );
+  const ok = expected !== null && source.includes(expected);
+  if (!ok) failed += 1;
+  console.log(
+    `  ${ok ? "OK" : "NG"} ${mirror.label.padEnd(24)} ${expected ?? "?"} が ${mirror.file} にある`,
+  );
+}
+
 for (const mode of ["light", "dark"]) {
   console.log(`\n=== ${mode === "light" ? "ライト" : "ダーク"} ===`);
   for (const [fgName, bgName, label, required] of pairs) {

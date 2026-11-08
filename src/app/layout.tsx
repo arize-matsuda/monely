@@ -18,9 +18,17 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   // 拡大を禁止しない（maximumScale / userScalable を指定しない）。NFR-U12〜U15
+  //
+  // viewport-fit=cover が無いと env(safe-area-inset-*) が常に 0 になる。
+  // 下部タブはこれを使ってホームバーを避けているので、指定しないと
+  // PWA（standalone）で潜る。
+  viewportFit: "cover",
+  // globals.css の --background と同じ値。
+  // **ずれると起動直後に色が切り替わって見える。**
+  // 数値は oklch で書いてあるので、pnpm check:contrast が一致を検査する
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f7f8" },
-    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
   ],
 };
 

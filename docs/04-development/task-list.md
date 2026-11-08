@@ -508,9 +508,16 @@ Next.js encountered the unstable value new Date() while prerendering.
 - [ ] M5-1 **デプロイ先を決める**（未確定事項 #1）
 - [ ] M5-2 デプロイする
 - [ ] M5-3 Supabase の Redirect URLs に本番 URL を追加
-- [ ] M5-4 アイコンを作る（192 / 512 / maskable / apple-touch-icon）
-- [ ] M5-5 `src/app/manifest.ts`
-- [ ] M5-6 `theme-color` と `viewport` の調整
+- [x] M5-4 アイコンを作る（2026-11-08、**デザインは仮**）
+  - `src/app/icon.svg`（ブラウザのタブ。¥ をパスで描いてフォントに依存させない）
+  - `src/app/apple-icon.tsx`（`ImageResponse` で 180×180 の PNG を生成）。**iOS は manifest の icons を見ず apple-touch-icon を使い、SVG も受け付けない**
+  - スキャフォールドの `src/app/favicon.ico`（Next.js の既定アイコン）を削除。残すと `rel="icon"` がそちらを指す
+  - 192 / 512 / maskable の PNG は未作成。Android でのインストール可否は M5-7（デプロイ後）に確認する
+  - デザインは未確定事項 #2。差し替えるときは `pnpm check:contrast` が色の一致を見る
+- [x] M5-5 `src/app/manifest.ts`（2026-11-08）
+- [x] M5-6 `theme-color` と `viewport` の調整（2026-11-08）
+  - **`viewport-fit=cover` を足した。** これが無いと `env(safe-area-inset-*)` が常に 0 で、下部タブが PWA でホームバーに潜る
+  - `theme-color` が `#f7f7f8` / `#09090b` のまま古く、実際の背景（`#fafafa` / `#0a0a0a`）とずれていた。**`pnpm check:contrast` に「トークンと手書き 16 進数の一致」検査を足して固定した**
 - [ ] M5-7 スマホでホーム画面に追加して全画面起動を確認
 - [ ] M5-8 `pnpm lint` / `pnpm build` を通してコミット
 
@@ -525,7 +532,7 @@ Next.js encountered the unstable value new Date() while prerendering.
 | # | 内容 | 判断の期限 | 状態 |
 | --- | --- | --- | --- |
 | 1 | デプロイ先（Vercel / 自前サーバー） | M5 の着手前 | **未決** |
-| 2 | PWA アイコンのデザイン | M5 | 未決 |
+| 2 | PWA アイコンのデザイン | M5 | **仮のものを置いた**（インディゴ地に ¥）。差し替えは任意 |
 | 3 | v2 で最初に作る機能（内訳 or 予算） | v1 を 1 か月使ってから | 未決 |
 
 ---
