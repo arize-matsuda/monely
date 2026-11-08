@@ -1,9 +1,8 @@
 import "server-only";
 import { betterAuth } from "better-auth";
-import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { magicLink } from "better-auth/plugins/magic-link";
-import { prisma } from "@/lib/data/db";
+import { authDatabaseAdapter } from "@/lib/data/auth-adapter";
 import { sendMail } from "@/lib/email";
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "@/lib/validation";
 
@@ -40,7 +39,8 @@ export const auth = betterAuth({
   // callbackURL の検証に使う。自分のオリジン以外へは飛ばさない
   trustedOrigins: [baseURL],
 
-  database: prismaAdapter(prisma, { provider: "postgresql" }),
+  // DB アダプタは DAL が持つ（約束 A: prisma を DAL の外から import しない）
+  database: authDatabaseAdapter,
 
   emailAndPassword: {
     enabled: true,

@@ -29,7 +29,7 @@
 | | |
 | --- | --- |
 | **進行中のマイルストーン** | **M3（記録と一覧 = v1 の本体）** |
-| **次にやること** | M3-3 DAL（月次一覧・単体取得・カテゴリ）＋ **認可テスト** |
+| **次にやること** | M3-5〜8 ホーム画面（月切り替え・合計・日付グループ化・空表示） |
 | **方針変更** | 2026-11-07 認可をアプリ層へ（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）/ 2026-11-08 認証をメール+パスワードへ（[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）/ 同日 認証基盤を better-auth へ（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)） |
 | **ブロッカー** | なし |
 
@@ -326,17 +326,19 @@ Next.js encountered uncached data during a navigation.
   - `src/lib/data/db.test.ts`（ハーネス自体の確認 6 件）
 - [x] M3-1 `src/lib/money.ts`（`formatYen` / `formatBalance` / `summarize` / `sumExpense`）＋ テスト 13 件（2026-11-08）
 - [x] M3-2 `src/lib/month.ts`（`monthRange` / `prevMonth` / `nextMonth` / `formatMonth` / `formatDateLabel` / `parseDateKey`）＋ テスト 28 件（2026-11-08）
-- [ ] M3-3 `src/lib/data/transactions.ts`（`listTransactionsByMonth`, `getTransaction`, `listCategories`）＋ **認可テスト**
-- [ ] M3-4 `src/lib/data/household.ts`（`listMembers`, `getHousehold`）＋ **認可テスト**
+- [x] M3-3 `src/lib/data/transactions.ts`（読み取り 3 + 変更 3）＋ **認可テスト 24 件**（2026-11-08）
+- [x] M3-4b `src/lib/data/household.test.ts` — 世帯 DAL の **認可テスト 13 件**（2026-11-08）
+- [x] M3-30 `src/lib/data/auth-adapter.ts` — better-auth の DB アダプタを DAL 側に移動（約束 A を守るため）（2026-11-08）
+- [x] M3-4 `src/lib/data/household.ts`（M2 で実装済み。`getMyHousehold` / `listMembers` / 更新系）
 - [ ] M3-5 ホーム画面 — 月切り替え（`?m=` の読み取り、不正値の扱い）
 - [ ] M3-6 ホーム画面 — 月次合計の表示
 - [ ] M3-7 ホーム画面 — 日付グループ化した一覧
 - [ ] M3-8 ホーム画面 — 空表示
-- [ ] M3-9 `createTransaction` アクション（検証・**参照先の所属確認**・INSERT）
+- [ ] M3-9 `createTransaction` アクション（検証）— **参照先の所属確認は DAL 側で実装済み**
 - [ ] M3-10 `/new` — 種別タブ、金額入力（Client Component）
 - [ ] M3-11 `/new` — カテゴリ選択
 - [ ] M3-12 `/new` — 折りたたみ項目（日付・支払った人・メモ）
-- [ ] M3-13 `updateTransaction` / `deleteTransaction` アクション + DAL（`updateMany` / `deleteMany`）＋ **認可テスト**
+- [ ] M3-13 `updateTransaction` / `deleteTransaction` アクション — **DAL と認可テストは実装済み**
 - [ ] M3-14 `/transactions/[id]` — 編集フォーム
 - [ ] M3-15 `/transactions/[id]` — 削除（確認付き）、見つからない表示
 - [ ] M3-16 エラー表示（入力エラー・保存失敗で入力が消えないこと）
@@ -352,6 +354,18 @@ Next.js encountered uncached data during a navigation.
 （なし）
 
 ---
+
+### M3-3 で分かったこと（認可テスト）
+
+| 事項 | 内容 |
+| --- | --- |
+| **約束 A の違反を静的チェックが捕まえた** | `src/lib/auth/server.ts` が better-auth のアダプタのために `@/lib/data/db` を import していた。認可上の危険はないが、**例外を作ると grep の価値が落ちる**。`src/lib/data/auth-adapter.ts` を作って DAL 側に寄せ、0 件に戻した |
+| grep に生成物が引っかかる | `src/generated/prisma/**` に `queryRawUnsafe` や `DATABASE_URL` が型定義として出てくる。**ドキュメントの grep コマンドに除外を入れた** |
+| `update` ではなく `updateMany` | `update({ where: { id } })` は世帯の条件を付けられない。`updateMany({ where: { id, householdId } })` にして `count === 0` なら `NOT_FOUND` |
+| **外部キーは参照先の所属を守らない** | 他世帯の `categoryId` / `paidById` でも行は存在するので通ってしまう。DAL の `validateReferences()` で明示的に確認し、テストで固定した |
+| 認証だけモックし、DB はモックしない | `vi.mock("@/lib/auth")` で `requireMember` を差し替え、クエリは本物を投げる。モックすると `where` の書き忘れを検出できない |
+
+**DAL の全 12 関数にテストがある**ことを機械的に確認した（関数名と `describe` の対応をスクリプトで突き合わせ）。
 
 ### M3-0〜2 で分かったこと
 

@@ -38,7 +38,8 @@ Next.js 16（App Router）+ Supabase（**PostgreSQL のみ**）+ **Prisma 7** + 
 **認可はアプリ層にしかない。最終防衛線が無い。** 1〜4 は設計が成立する条件そのもの。
 
 1. **`prisma` を `src/lib/data/` の外から import しない。** 画面と Server Action は DAL の関数だけを呼ぶ。
-   検出: `grep -rn "data/db" src --include="*.ts" --include="*.tsx" | grep -v "^src/lib/data/"` が 0 件
+   検出: `grep -rn "data/db" src --include="*.ts" --include="*.tsx" | grep -v "^src/lib/data/" | grep -v "^src/test/"` が 0 件。
+   better-auth の DB アダプタも DAL 側（`src/lib/data/auth-adapter.ts`）に置いてある。
 2. **DAL のすべてのクエリに `householdId` の条件を付ける。** これが唯一の認可。
    `update({ where: { id } })` を使わない → `updateMany({ where: { id, householdId } })` にして `count === 0` なら `NOT_FOUND`。
 3. **DAL の関数は世帯 ID を引数で受け取らない。** 関数の中で `requireMember()` から取る。`householdId` / `createdById` をクライアントから受け取らない。

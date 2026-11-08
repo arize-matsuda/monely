@@ -90,9 +90,12 @@ monely/
         ├── email.ts            メール送信（Resend / 開発時はコンソール）
         ├── data/               ★ DB に触る唯一の場所。認可もここ
         │   ├── db.ts           Prisma Client の生成口（外から import 禁止）
+        │   ├── auth-adapter.ts better-auth に渡す DB アダプタ
+        │   ├── profile.ts      身元の確立（約束 B の唯一の例外）
         │   ├── transactions.ts
         │   ├── transactions.test.ts   認可テスト（必須）
-        │   └── household.ts
+        │   ├── household.ts
+        │   └── household.test.ts      認可テスト（必須）
         ├── auth.ts             現在のユーザーと世帯の取得・ガード
         ├── money.ts            金額の整形・パース
         ├── month.ts            月の計算（開始日・前月・翌月・表示名）

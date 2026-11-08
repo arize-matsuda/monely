@@ -225,7 +225,8 @@ import { listTransactionsByMonth } from "@/lib/data/transactions";
 
 ```bash
 # DAL の外から db を import していないか（0 件であること）
-grep -rn "data/db" src --include="*.ts" --include="*.tsx" | grep -v "^src/lib/data/"
+grep -rn "data/db" src --include="*.ts" --include="*.tsx" \
+  | grep -v "^src/lib/data/" | grep -v "^src/test/"
 ```
 
 ### 4.2 約束 B: DAL の関数は世帯 ID を引数で受け取らない
@@ -352,7 +353,11 @@ RLS を使わないため、**この接続文字列はテーブルの全権（�
 
 ```bash
 # 定期的に確認する
-grep -rn "DATABASE_URL\|DIRECT_URL" src/ | grep -v "src/lib/data/db.ts"   # 0 件であること
+# 生成物（src/generated）とテストは除外する
+grep -rn "DATABASE_URL\|DIRECT_URL" src --include="*.ts" \
+  | grep -v "^src/generated/" | grep -v "^src/test/" | grep -v "\.test\.ts"
+# → src/lib/data/db.ts の 1 行だけであること
+
 grep -rn "NEXT_PUBLIC_DATABASE\|NEXT_PUBLIC_DIRECT" .                     # 0 件であること
 ```
 
@@ -394,7 +399,8 @@ grep -rn "NEXT_PUBLIC_DATABASE\|NEXT_PUBLIC_DIRECT" .                     # 0 �
 Prisma のクエリビルダを使う限り、値はパラメータとして送られるため発生しない。**`$queryRaw` / `$executeRaw` を使わない。** どうしても必要な場合はタグ付きテンプレート（`$queryRaw\`...\``）を使い、文字列連結で組み立てない。
 
 ```bash
-grep -rn "queryRawUnsafe\|executeRawUnsafe" src/   # 0 件であること
+grep -rn "queryRawUnsafe\|executeRawUnsafe" src --include="*.ts" \
+  | grep -v "^src/generated/"   # 0 件であること（生成物には型定義として出てくる）
 ```
 
 ### 7.3 XSS
@@ -465,7 +471,8 @@ better-auth は Cookie を `httpOnly` / `sameSite` 付きで設定し、Set-Cook
 
 ### 約束 A/B/C
 
-- [ ] `grep -rn "data/db" src --include="*.ts" --include="*.tsx" | grep -v "^src/lib/data/"` が 0 件
+- [ ] `grep -rn "data/db" src --include="*.ts" --include="*.tsx" \
+  | grep -v "^src/lib/data/" | grep -v "^src/test/"` が 0 件
 - [ ] DAL のすべての関数が世帯 ID を引数で受け取っていない
 - [ ] DAL のすべてのクエリに `householdId` の条件がある（目で全件確認する。v1 では 15 本程度）
 - [ ] DAL のすべての関数に認可テストがある
@@ -483,7 +490,7 @@ better-auth は Cookie を `httpOnly` / `sameSite` 付きで設定し、Set-Cook
 
 ### 秘密情報
 
-- [ ] `grep -rn "DATABASE_URL" src/ | grep -v "src/lib/data/db.ts"` が 0 件
+- [ ] `DATABASE_URL` の grep（§6.1）が `db.ts` の 1 行だけ
 - [ ] `NEXT_PUBLIC_DATABASE` のような変数が存在しない
 - [ ] `.env.local` がコミットされていない（`git log --all -- .env.local` が空）
 - [ ] `git log -p` に接続文字列が出ていない

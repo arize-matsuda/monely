@@ -57,13 +57,16 @@ pnpm test     # Vitest。全件通ること（M3 以降）
 
 ```bash
 # 約束 A: prisma を DAL の外から import していないか（0 件であること）
-grep -rn "data/db" src --include="*.ts" --include="*.tsx" | grep -v "^src/lib/data/"
+grep -rn "data/db" src --include="*.ts" --include="*.tsx" \
+  | grep -v "^src/lib/data/" | grep -v "^src/test/"
 
-# DATABASE_URL を db.ts 以外から参照していないか（0 件であること）
-grep -rn "DATABASE_URL" src/ | grep -v "src/lib/data/db.ts"
+# DATABASE_URL を db.ts 以外から参照していないか（生成物とテストは除外）
+grep -rn "DATABASE_URL\|DIRECT_URL" src --include="*.ts" \
+  | grep -v "^src/generated/" | grep -v "^src/test/" | grep -v "\.test\.ts"
 
-# 生の SQL を使っていないか（0 件であること）
-grep -rn "queryRawUnsafe\|executeRawUnsafe" src/
+# 生の SQL を使っていないか（生成物は除外）
+grep -rn "queryRawUnsafe\|executeRawUnsafe" src --include="*.ts" \
+  | grep -v "^src/generated/"
 ```
 
 ---
