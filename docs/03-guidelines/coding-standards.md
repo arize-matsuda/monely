@@ -137,6 +137,15 @@ function required(name: string): string {
 
 `next.config.ts` で `reactCompiler: true`。**`useMemo` / `useCallback` を反射的に書かない。** 必要だと判断した場合は、なぜ必要かをコメントに書く。
 
+### 5.3.1 `refresh()` はルートレイアウトから作り直す
+
+画面に残したまま更新する Server Action では `refresh()` を呼ぶ（`redirect()` するなら不要）。
+ただし **`refresh()` はクライアントでルートレイアウトまで再描画する。**
+ルートレイアウトに「サーバーでしか成立しないもの」を置くと、そこで壊れる。
+
+実例: `<head>` のインラインスクリプトが「クライアント描画された `<script>`」になり、
+React が開発時エラーを出して画面が見えなくなった（`theme-script.tsx` のコメント参照）。
+
 ### 5.4 Next.js 16 固有
 
 このリポジトリの Next.js は 16.4.5 で、一般的な記事やモデルの学習データと差がある。**一次情報は `node_modules/next/dist/docs/`**（`AGENTS.md` にも明記）。実装前に該当するガイドを読む。

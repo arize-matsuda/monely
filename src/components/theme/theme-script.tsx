@@ -16,6 +16,25 @@ import { THEME_STORAGE_KEY } from "./theme";
 export function ThemeScript() {
   const script = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`;
 
-  // biome-ignore lint/security/noDangerouslySetInnerHtml: 定数のみを埋め込む。利用者の入力は含まない（上のコメント参照）
-  return <script dangerouslySetInnerHTML={{ __html: script }} />;
+  return (
+    <script
+      /*
+       * **type をサーバーとクライアントで変える。**
+       *
+       * クライアントの描画で <script> を作っても実行されないため、React は
+       * 開発時にエラーを出す（「Encountered a script tag while rendering
+       * React component」）。Server Action のあとに refresh() を呼ぶと
+       * ルートレイアウトまで再描画されるので、この経路に入る。
+       *
+       * サーバーでは text/javascript（HTML の解析中に実行される）、
+       * クライアントでは text/plain（実行されない代わりにエラーも出ない）。
+       * type の食い違いは suppressHydrationWarning で黙らせる。
+       * → 上記の公式ガイド「Extracting a reusable component」
+       */
+      type={typeof window === "undefined" ? "text/javascript" : "text/plain"}
+      suppressHydrationWarning
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: 定数のみを埋め込む。利用者の入力は含まない（上のコメント参照）
+      dangerouslySetInnerHTML={{ __html: script }}
+    />
+  );
 }

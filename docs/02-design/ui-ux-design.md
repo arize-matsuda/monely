@@ -416,9 +416,14 @@ flowchart TD
 | `src/app/globals.css` | トークンの定義と `color-scheme` の切り替え |
 | `src/components/theme/theme.ts` | 型、`localStorage` の読み書き |
 | `src/components/theme/theme-script.tsx` | **描画前**に `data-theme` を当てる（ちらつき防止） |
+| `src/components/theme/theme-sync.tsx` | 開発時に `data-theme` が外れたら貼り直す（本番では何もしない） |
 | `src/components/theme/theme-toggle.tsx` | 切り替え UI（中身は本物の radio） |
 
 **ちらつき防止には `<head>` 内のインラインスクリプトが必要**（Next.js の公式手順）。これが無いと、OS がダークで利用者がライトを選んでいる場合に一瞬ダークで描画される。
+
+このスクリプトには **`type` をサーバーとクライアントで変える**仕掛けが要る。クライアントの描画で `<script>` を作っても実行されないため、React が開発時にエラーを出す。Server Action のあとに `refresh()` を呼ぶとルートレイアウトまで再描画されてこの経路に入る（実際に踏んだ）。サーバーでは `text/javascript`、クライアントでは `text/plain` にして、食い違いは `suppressHydrationWarning` で黙らせる。
+
+また開発時は React の Strict Mode が 1 度再マウントし、そのとき `<html>` の属性を **JSX に書かれているものだけ**に戻す。スクリプトが付けた `data-theme` は消えるので、`ThemeSync`（`useLayoutEffect`）で貼り直す。
 
 保存先は `localStorage`（キー `monely-theme`）。**端末ごとの設定**で、サーバーにも他の端末にも共有されない。書き込みに失敗しても表示は切り替わる。
 

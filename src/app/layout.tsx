@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { ThemeScript } from "@/components/theme/theme-script";
+import { ThemeSync } from "@/components/theme/theme-sync";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,7 +47,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <ThemeScript />
       </head>
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        {/* 開発時に data-theme が外れたら貼り直す（本番では何もしない） */}
+        <ThemeSync />
+        {children}
+      </body>
     </html>
   );
 }

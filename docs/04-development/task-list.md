@@ -368,6 +368,28 @@ Next.js encountered uncached data during a navigation.
 
 ---
 
+### M4 で見つけて直した不具合
+
+**`refresh()` を足したら、テーマのスクリプトでエラーが出た**（2026-11-08）。
+
+```
+Encountered a script tag while rendering React component.
+Scripts inside React components are never executed when rendering on the client.
+```
+
+| | |
+| --- | --- |
+| 原因 | M4-2 / M4-7 で Server Action に `refresh()` を 5 箇所足した。**`refresh()` はルートレイアウトまでクライアントで再描画する**ので、`<head>` のインラインスクリプトが「クライアント描画された `<script>`」になり、React が開発時エラーを出す |
+| 症状 | **エラーオーバーレイで画面が見えない。** サーバーの HTML は正しいので、HTTP で叩くと 200 が返り気づけない |
+| 直し方 | Next.js 公式ガイドの手順。`type` をサーバーで `text/javascript`、クライアントで `text/plain` にし、食い違いを `suppressHydrationWarning` で黙らせる |
+
+**ついでに同じガイドに書かれていた別の落とし穴も塞いだ。** 開発時は React の
+Strict Mode が 1 度再マウントし、そのとき `<html>` の属性を JSX にあるものだけに
+戻すため `data-theme` が消える。`ThemeSync`（`useLayoutEffect`）で貼り直す。
+
+**教訓: `refresh()` はルートレイアウトから作り直す。** 画面に残る更新で使うときは、
+ルートレイアウトに「サーバーでしか成立しないもの」が無いか確認する。
+
 ### M3 で見つけて直した不具合
 
 **1,000 円以上が保存できなかった**（2026-11-08、利用者が最初の手動確認で発見）。
