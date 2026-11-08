@@ -1,35 +1,43 @@
 @import "tailwindcss";
 
 /*
- * デザイントークン。docs/02-design/ui-ux-design.md §6.4 が正。
+ * デザイントークン。docs/02-design/ui-ux-design.md が正。
  * コンポーネントに生の色値（#rrggbb）を書かず、必ずここ経由で使う。
  * コントラストは WCAG AA（本文 4.5:1）以上を満たす値を選んでいる（NFR-U6）。
+ *
+ * テーマの切り替え（システム / ライト / ダーク）:
+ *   CSS の light-dark() に 1 箇所で両方の値を書き、
+ *   実際どちらが使われるかは color-scheme が決める。
+ *   こうするとトークンの定義が二重化せず、片方だけ直す事故が起きない。
+ *   スクロールバーや <input type="date"> などのネイティブ UI も一緒に切り替わる。
  */
 :root {
-  /* ライト */
-  --background: #f7f7f8; /* ページ背景 */
-  --surface: #ffffff; /* カード・一覧の行 */
-  --foreground: #18181b; /* 本文 */
-  --muted: #52525b; /* 補助テキスト（メモ・支払った人） */
-  --border: #e4e4e7; /* 区切り線 */
-  --accent: #4f46e5; /* 主要ボタン・選択状態 */
-  --accent-foreground: #ffffff; /* アクセント上の文字 */
-  --income: #15803d; /* 収入 */
-  --danger: #dc2626; /* 差額マイナス・削除 */
+  /* 既定は OS の設定に追従する */
+  color-scheme: light dark;
+
+  /*                     ライト      ダーク   */
+  --background: light-dark(#f7f7f8, #09090b); /* ページ背景 */
+  --surface: light-dark(#ffffff, #18181b); /* カード・一覧の行 */
+  --foreground: light-dark(#18181b, #fafafa); /* 本文 */
+  --muted: light-dark(#52525b, #a1a1aa); /* 補助テキスト */
+  --border: light-dark(#e4e4e7, #27272a); /* 区切り線 */
+  --income: light-dark(#15803d, #4ade80); /* 収入 */
+  --danger: light-dark(#dc2626, #f87171); /* 差額マイナス・削除 */
+
+  /* アクセントは両モードで同じ値。near-black 上でも白文字が 6.2:1 を確保でき、
+     ボタン自体も背景に対して 3:1 を満たす */
+  --accent: #4f46e5;
+  --accent-foreground: #ffffff;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #09090b;
-    --surface: #18181b;
-    --foreground: #fafafa;
-    --muted: #a1a1aa;
-    --border: #27272a;
-    /* --accent はライトと同じ値を使う。
-       near-black 上でも白文字が 6.2:1 を確保でき、ボタン自体も背景に対して 3:1 を満たす。 */
-    --income: #4ade80;
-    --danger: #f87171;
-  }
+/* 利用者が明示的に選んだ場合は OS の設定より優先する。
+   属性は src/components/theme/ が <html> に付ける */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -43,7 +51,7 @@
   --color-income: var(--income);
   --color-danger: var(--danger);
 
-  /* Geist は英数字向けなので、日本語はシステムフォントに落とす（UI/UX設計 §8） */
+  /* Geist は英数字向けなので、日本語はシステムフォントに落とす */
   --font-sans:
     var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Hiragino Sans",
     "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif;

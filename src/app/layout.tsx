@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
+import { ThemeScript } from "@/components/theme/theme-script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,7 +29,15 @@ export const viewport: Viewport = {
 // → docs/05-decisions/ADR-0004-instant-false-for-authed-segments.md
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ja" className={`${geistSans.variable} h-full antialiased`}>
+    // suppressHydrationWarning は ThemeScript が data-theme を書き換えるため必要
+    <html
+      lang="ja"
+      className={`${geistSans.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
+      <head>
+        <ThemeScript />
+      </head>
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );

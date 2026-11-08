@@ -399,7 +399,22 @@ grep -rn "queryRawUnsafe\|executeRawUnsafe" src/   # 0 件であること
 
 ### 7.3 XSS
 
-React は既定で文字列をエスケープする。**`dangerouslySetInnerHTML` を使わない。** メモ欄は自由文を受け取るが、`{memo}` として描画すれば安全。
+React は既定で文字列をエスケープする。**原則として `dangerouslySetInnerHTML` を使わない。** メモ欄は自由文を受け取るが、`{memo}` として描画すれば安全。
+
+#### 唯一の例外: `src/components/theme/theme-script.tsx`
+
+テーマのちらつき防止には `<head>` 内のインラインスクリプトが必要で、Next.js の公式手順もこの形を示している。
+
+**許容する条件**（これを満たさないものは書かない）:
+
+- 埋め込む文字列が**ソース内の定数だけ**で組み立てられている
+- 利用者の入力・DB の値・リクエストの値が**一切入らない**
+- `biome-ignore` に理由を書いてある
+
+```bash
+# 例外が増えていないか確認する（1 件であること）
+grep -rn "dangerouslySetInnerHTML" src/
+```
 
 ### 7.4 CSRF
 
@@ -461,7 +476,7 @@ better-auth は Cookie を `httpOnly` / `sameSite` 付きで設定し、Set-Cook
 - [ ] `householdId` / `createdById` をクライアントから受け取っていない
 - [ ] `categoryId` / `paidById` の所属を確認している
 - [ ] `getSession()` を認可の判断に使っていない
-- [ ] `dangerouslySetInnerHTML` を使っていない
+- [ ] `dangerouslySetInnerHTML` が `theme-script.tsx` の 1 件だけ（`grep -rn dangerouslySetInnerHTML src/`）
 - [ ] `queryRawUnsafe` / `executeRawUnsafe` を使っていない
 - [ ] キャッシュキー・タグに個人情報が入っていない
 - [ ] エラーメッセージに Prisma の内部情報が出ていない

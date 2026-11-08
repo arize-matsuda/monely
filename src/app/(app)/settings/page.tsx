@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { signOut } from "@/actions/auth";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { requireMember } from "@/lib/auth";
 import { getMyHousehold, listMembers } from "@/lib/data/household";
@@ -67,6 +68,14 @@ export default async function SettingsPage() {
             <dd className="truncate">{me.email}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className="mt-4 rounded-xl border border-border bg-surface p-4">
+        <h2 className="mb-3 text-sm font-medium text-muted">表示テーマ</h2>
+        <ThemeToggle />
+        <p className="mt-2 text-xs text-muted">
+          「システム」は端末の設定に合わせます。この端末にだけ保存されます。
+        </p>
       </section>
 
       <section className="mt-4 rounded-xl border border-border bg-surface p-4">

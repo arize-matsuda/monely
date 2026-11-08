@@ -362,7 +362,44 @@ M3 では `sort_order` 順で出し、M4 で使用頻度順に差し替える。
 | 破壊的操作（削除） | 赤系 |
 | 選択中の種別タブ | アクセント色の背景 |
 
-ダークモードは `prefers-color-scheme` に追従する（NFR-U5）。色は CSS 変数（`globals.css` の `:root`）で定義し、ライト / ダークで値を差し替える。**コンポーネントに生の色値を書かない。**
+### 6.3.1 テーマの切り替え（システム / ライト / ダーク）
+
+既定は OS の設定に追従し、`/settings` で明示的に上書きできる（FR-X5）。
+
+| `data-theme` | OS の設定 | 結果 |
+| --- | --- | --- |
+| なし（システム） | ライト | ライト |
+| なし（システム） | ダーク | ダーク |
+| `light` | ダーク | **ライト**（上書き） |
+| `dark` | ライト | **ダーク**（上書き） |
+
+実装は **CSS の `light-dark()`** を使う。
+
+```css
+:root {
+  color-scheme: light dark;                      /* 既定: OS に追従 */
+  --background: light-dark(#f7f7f8, #09090b);    /* 定義は 1 箇所 */
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"]  { color-scheme: dark; }
+```
+
+**トークンの定義が二重化しない**のが利点。ライト用とダーク用を別ブロックに書くと、片方だけ直す事故が起きる。`color-scheme` を切り替えるだけなので、**スクロールバーや `<input type="date">` などのネイティブ UI も一緒に切り替わる**。
+
+| ファイル | 役割 |
+| --- | --- |
+| `src/app/globals.css` | トークンの定義と `color-scheme` の切り替え |
+| `src/components/theme/theme.ts` | 型、`localStorage` の読み書き |
+| `src/components/theme/theme-script.tsx` | **描画前**に `data-theme` を当てる（ちらつき防止） |
+| `src/components/theme/theme-toggle.tsx` | 切り替え UI（中身は本物の radio） |
+
+**ちらつき防止には `<head>` 内のインラインスクリプトが必要**（Next.js の公式手順）。これが無いと、OS がダークで利用者がライトを選んでいる場合に一瞬ダークで描画される。
+
+保存先は `localStorage`（キー `monely-theme`）。**端末ごとの設定**で、サーバーにも他の端末にも共有されない。書き込みに失敗しても表示は切り替わる。
+
+### 6.3.2 色の定義
+
+色は CSS 変数（`globals.css` の `:root`）で定義する。**コンポーネントに生の色値を書かない。**
 
 ### 6.4 デザイントークン
 
@@ -432,6 +469,8 @@ M3 では `sort_order` 順で出し、M4 で使用頻度順に差し替える。
 | `KindTabs` | `components/` | **Client**（選択状態を持つ） |
 | `CategoryPicker` | `components/` | **Client** |
 | `Button` / `Field` / `TextInput` / `FormError` | `components/ui/` | Server（汎用） |
+| `ThemeToggle` | `components/theme/` | **Client**（localStorage を読む） |
+| `ThemeScript` | `components/theme/` | Server（`<head>` のインラインスクリプト） |
 | `DeleteButton` | `components/` | **Client**（確認ダイアログ） |
 
 **既定は Server Component。** 操作の状態を持つものだけ `"use client"` にする（→ [アーキテクチャ §3.2](./architecture.md#32-server--client-の境界)）。

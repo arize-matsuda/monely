@@ -209,6 +209,7 @@ export function parseAmount(raw: FormDataEntryValue | null): ParseResult<number>
 
 - Tailwind CSS v4。ユーティリティクラスを直接書く。CSS ファイルを増やさない。
 - **色は CSS 変数（デザイントークン）経由で使う。** `bg-[#10b981]` のような生の色値をコンポーネントに書かない。
+- **トークンは `light-dark()` で 1 箇所に書く。** ライト用とダーク用を別ブロックに分けない（片方だけ直す事故を防ぐ）。
 - トークンの定義は `src/app/globals.css` の `:root` と `@theme`。ライト / ダークで値を差し替える。
 - 余白・文字サイズは Tailwind の既定スケールを使う。独自の値（`p-[13px]`）を作らない。
 - クラス名が長くなっても、条件分岐のない限り変数に逃がさない（検索性を保つ）。
