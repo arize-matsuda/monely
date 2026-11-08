@@ -33,6 +33,8 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.local.example
+# テスト用（秘密情報を含まない。ローカルの捨て DB のみ）
+!.env.test
 
 # vercel
 .vercel

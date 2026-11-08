@@ -28,8 +28,8 @@
 
 | | |
 | --- | --- |
-| **進行中のマイルストーン** | **M2 完了（2026-11-08）。次は M3（記録と一覧 = v1 の本体）** |
-| **次にやること** | M3-0 Vitest とローカル DB の用意（ADR-0005 約束 C） |
+| **進行中のマイルストーン** | **M3（記録と一覧 = v1 の本体）** |
+| **次にやること** | M3-3 DAL（月次一覧・単体取得・カテゴリ）＋ **認可テスト** |
 | **方針変更** | 2026-11-07 認可をアプリ層へ（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）/ 2026-11-08 認証をメール+パスワードへ（[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）/ 同日 認証基盤を better-auth へ（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)） |
 | **ブロッカー** | なし |
 
@@ -318,9 +318,14 @@ Next.js encountered uncached data during a navigation.
 
 ### 未着手
 
-- [ ] M3-0 **Vitest とローカル DB の用意**（`vitest.config.ts`, `scripts/test-db.sh`, `.env.test`）— ADR-0005 約束 C
-- [ ] M3-1 `src/lib/money.ts`（`formatYen`, `parseAmount`, `summarize`）＋ テスト
-- [ ] M3-2 `src/lib/month.ts`（`monthRange`, `prevMonth`, `nextMonth`, `formatMonth`, `formatDateLabel`）＋ テスト（**UTC での整形**）
+- [x] M3-0 **Vitest とローカル DB の用意**（2026-11-08）
+  - `vitest.config.mts`、`.env.test`、`scripts/test-db.sh`（Docker の捨て Postgres）
+  - `src/test/setup.ts`（**localhost 以外を指していたらテストを止める**）
+  - `src/test/db.ts`（`resetDb` / `seedTwoHouseholds` / 認可を迂回する raw 関数）
+  - `src/test/server-only-stub.ts`（`server-only` は Next のバンドラ専用なので差し替え）
+  - `src/lib/data/db.test.ts`（ハーネス自体の確認 6 件）
+- [x] M3-1 `src/lib/money.ts`（`formatYen` / `formatBalance` / `summarize` / `sumExpense`）＋ テスト 13 件（2026-11-08）
+- [x] M3-2 `src/lib/month.ts`（`monthRange` / `prevMonth` / `nextMonth` / `formatMonth` / `formatDateLabel` / `parseDateKey`）＋ テスト 28 件（2026-11-08）
 - [ ] M3-3 `src/lib/data/transactions.ts`（`listTransactionsByMonth`, `getTransaction`, `listCategories`）＋ **認可テスト**
 - [ ] M3-4 `src/lib/data/household.ts`（`listMembers`, `getHousehold`）＋ **認可テスト**
 - [ ] M3-5 ホーム画面 — 月切り替え（`?m=` の読み取り、不正値の扱い）
@@ -347,6 +352,17 @@ Next.js encountered uncached data during a navigation.
 （なし）
 
 ---
+
+### M3-0〜2 で分かったこと
+
+| 事項 | 内容 |
+| --- | --- |
+| **`Intl` の `currency: "JPY"` は全角の ￥ を返す** | `￥`（U+FFE5）で、半角の `¥`（U+00A5）ではない。半角数字と並べると幅が揃わない。**桁区切りだけ `Intl` に任せ、記号は自前で付ける**形にした。環境の ICU に依存しなくなる利点もある。**テストで気づいた** |
+| `server-only` は Node から require できない | Next.js のバンドラが解決する仮想モジュール。Vitest では空のモジュールに別名を張る |
+| `vitest.config.ts` は警告が出る | ESM 構文なので `.mts` にする |
+| Vitest 5 は `@types/node ^22 \|\| >=24` を要求 | `^20` から `^24` に上げた（Node 26 を使っているので実態に近い） |
+| `0002` はローカルに `anon` / `authenticated` ロールが必要 | `scripts/test-db.sh` が先に作る |
+| **ローカルタイムで日付を取り出すと前日になりうる** | テストで実証した。`@db.Date` は UTC 0 時で返るので、負のオフセットの環境では `getDate()` が 1 日ずれる。JST では偶然一致するため**日本で開発している限りバグが隠れる** |
 
 ## M4 — スマホ UI の仕上げ
 
