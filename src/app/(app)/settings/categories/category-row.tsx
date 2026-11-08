@@ -55,7 +55,7 @@ export function CategoryRow({
       <Button
         type="button"
         variant="ghost"
-        size="icon-sm"
+        size="icon"
         onClick={() => setEditing(true)}
         aria-label={`${name} の名前を変える`}
       >
@@ -102,7 +102,7 @@ function RenameForm({
           autoFocus
           aria-invalid={message ? true : undefined}
         />
-        <Button type="submit" size="icon" disabled={pending} aria-label="保存">
+        <Button type="submit" size="icon" pending={pending} aria-label="保存">
           <Check aria-hidden />
         </Button>
         <Button
@@ -150,8 +150,8 @@ function ArchiveButton({
       <Button
         type="submit"
         variant="ghost"
-        size="icon-sm"
-        disabled={pending}
+        size="icon"
+        pending={pending}
         aria-label={
           archived ? `${name} を表示に戻す` : `${name} を非表示にする`
         }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   currentMonth,
+  dateShortcuts,
   daysAgo,
   formatDateLabel,
   formatDateSlashed,
@@ -261,5 +262,23 @@ describe("daysAgo", () => {
     expect(toDateKey(daysAgo(new Date("2028-03-01T12:00:00+09:00"), 1))).toBe(
       "2028-02-29",
     );
+  });
+});
+
+describe("dateShortcuts", () => {
+  it("今日と昨日を返す", () => {
+    const now = new Date("2026-11-08T12:00:00+09:00");
+    expect(dateShortcuts(now)).toEqual([
+      { label: "今日", value: "2026-11-08" },
+      { label: "昨日", value: "2026-11-07" },
+    ]);
+  });
+
+  it("月初でも前月にさかのぼる", () => {
+    const now = new Date("2026-11-01T09:00:00+09:00");
+    expect(dateShortcuts(now).map((s) => s.value)).toEqual([
+      "2026-11-01",
+      "2026-10-31",
+    ]);
   });
 });

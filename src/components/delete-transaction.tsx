@@ -59,7 +59,7 @@ export function DeleteTransaction({ id }: { id: string }) {
         <Button
           type="submit"
           variant="destructive"
-          disabled={pending}
+          pending={pending}
           className="flex-1"
         >
           <Trash2 aria-hidden />

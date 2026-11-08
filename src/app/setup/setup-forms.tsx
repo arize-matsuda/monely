@@ -55,7 +55,7 @@ export function CreateHouseholdForm({
           required
         />
       </Field>
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
+      <Button type="submit" size="lg" className="w-full" pending={pending}>
         {pending ? "作成中…" : "家計簿を作る"}
       </Button>
     </form>
@@ -108,7 +108,7 @@ export function JoinHouseholdForm({
         variant="secondary"
         size="lg"
         className="w-full"
-        disabled={pending}
+        pending={pending}
       >
         {pending ? "参加中…" : "参加する"}
       </Button>

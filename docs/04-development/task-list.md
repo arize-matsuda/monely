@@ -477,10 +477,19 @@ Next.js encountered the unstable value new Date() while prerendering.
   - **集計期間の下限は必須引数**（`daysAgo(await requestNow(), 30)`）。既定引数で時計を読まない（§8.0）
   - `month.ts` に `daysAgo` を追加（テスト 4 件）
   - 認可テストを 4 件追加。**他世帯の使用回数で並びが変わらないこと**を含む
-- [ ] M4-9 日付の「今日 / 昨日」ショートカット
-- [ ] M4-10 タップ領域・コントラスト・フォーカス表示の調整
-  - **一部は M3-23 で済んだ**（44px、`pnpm check:contrast`、`focus-visible` のリング）。残りは実機での確認
-- [ ] M4-11 保存中の状態表示
+- [x] M4-9 日付の「今日 / 昨日」ショートカット（2026-11-08）
+  - `dateShortcuts(now)` を `month.ts` に置き、**サーバーで作って渡す**（クライアントで `new Date()` を読むとハイドレーションがずれる）
+  - 日付欄を制御された状態にして、押すと差し替わるようにした
+- [x] M4-10 タップ領域・コントラスト・フォーカス表示の調整（2026-11-08）
+  - M3-23 で `Button` / `Input` を 44px にし、`pnpm check:contrast` と `focus-visible` のリングを入れた
+  - **M4-7 / M4-2 で自分が 28px のボタンを作っていたのを検出して直した**（カテゴリ行の鉛筆・目、「変更」「閉じる」、日付のショートカット）
+  - 検出に使った grep: `grep -rnE 'size="(xs|sm|icon-xs|icon-sm)"' src/app src/components`
+  - 実機での確認は M4-13 に残る
+- [x] M4-11 保存中の状態表示（2026-11-08）
+  - **`Button` に `pending` prop を足して 1 箇所に寄せた。** 画面ごとに書くと付け忘れが出る
+  - スピナー（`Loader2` + `animate-spin`）を出し、`disabled` も自動で付く
+  - アイコンだけのボタンは中身をスピナーに置き換える（並べる余地が無い）
+  - 既存の `disabled={pending}` 13 箇所を `pending={pending}` に置き換えた
 - [ ] M4-12 受入条件 AC-10, AC-12 を実施
 - [ ] M4-13 実機（iPhone）での確認
 - [ ] M4-14 **受入条件 AC-9 を再実施**

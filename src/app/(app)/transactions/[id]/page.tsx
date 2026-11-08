@@ -20,7 +20,7 @@ import {
   listCategories,
   USAGE_WINDOW_DAYS,
 } from "@/lib/data/transactions";
-import { daysAgo, toDateKey } from "@/lib/month";
+import { dateShortcuts, daysAgo, toDateKey } from "@/lib/month";
 
 export const metadata = { title: "記録の編集 | Monely" };
 
@@ -70,7 +70,8 @@ export default async function EditTransactionPage({
     );
   }
 
-  const usageSince = daysAgo(await requestNow(), USAGE_WINDOW_DAYS);
+  const now = await requestNow();
+  const usageSince = daysAgo(now, USAGE_WINDOW_DAYS);
   const [expense, income] = await Promise.all([
     listCategories("expense", usageSince),
     listCategories("income", usageSince),
@@ -92,6 +93,7 @@ export default async function EditTransactionPage({
           paidById: transaction.paidById ?? "",
           memo: transaction.memo ?? "",
         }}
+        dateShortcuts={dateShortcuts(now)}
         submitLabel="更新する"
         pendingLabel="更新中…"
         footer={<DeleteTransaction id={transaction.id} />}

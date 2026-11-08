@@ -1,5 +1,6 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
+import { Loader2 as Loader2Icon } from "lucide-react";
 import { Slot } from "radix-ui";
 import type * as React from "react";
 
@@ -44,15 +45,26 @@ const buttonVariants = cva(
   },
 );
 
+/**
+ * `pending` を渡すと、スピナーを出して押せなくする（NFR-U9）。
+ *
+ * **送信中の見せ方をここ 1 箇所に寄せている。** 画面ごとに書くと
+ * 付け忘れが出る。ラベルの差し替え（「保存する」→「保存中…」）は
+ * 文言が画面ごとに違うので呼び出し側に残す。
+ */
 function Button({
   className,
   variant = "default",
   size = "default",
   asChild = false,
+  pending = false,
+  disabled,
+  children,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
+    pending?: boolean;
   }) {
   const Comp = asChild ? Slot.Root : "button";
 
@@ -61,9 +73,20 @@ function Button({
       data-slot="button"
       data-variant={variant}
       data-size={size}
+      data-pending={pending || undefined}
+      disabled={disabled || pending}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
-    />
+    >
+      {/*
+        asChild のときは子が 1 つでなければならないので足さない。
+        アイコンだけのボタンは並べる余地が無いので、中身を置き換える。
+      */}
+      {pending && !asChild ? (
+        <Loader2Icon className="animate-spin" aria-hidden />
+      ) : null}
+      {pending && !asChild && String(size).startsWith("icon") ? null : children}
+    </Comp>
   );
 }
 

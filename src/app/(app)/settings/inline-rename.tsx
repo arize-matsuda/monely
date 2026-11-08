@@ -52,12 +52,7 @@ export function InlineRename({
           <p className="text-sm text-muted-foreground">{label}</p>
           <p className="truncate">{value}</p>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setEditing(true)}
-        >
+        <Button type="button" variant="ghost" onClick={() => setEditing(true)}>
           <Pencil aria-hidden />
           変更
         </Button>
@@ -78,7 +73,7 @@ export function InlineRename({
           // 鉛筆を押して開いた直後なので、入力欄に移るのが期待される動き
           autoFocus
         />
-        <Button type="submit" size="icon" disabled={pending} aria-label="保存">
+        <Button type="submit" size="icon" pending={pending} aria-label="保存">
           <Check aria-hidden />
         </Button>
         <Button

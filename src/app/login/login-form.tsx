@@ -40,7 +40,7 @@ export function LoginForm() {
           required
         />
       </Field>
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
+      <Button type="submit" size="lg" className="w-full" pending={pending}>
         {pending ? "ログイン中…" : "ログイン"}
       </Button>
     </form>

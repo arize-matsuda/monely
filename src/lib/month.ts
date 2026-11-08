@@ -141,6 +141,17 @@ export function daysAgo(now: Date, days: number): Date {
   return date;
 }
 
+/**
+ * 日付入力のショートカット（UI/UX設計 §5.5）。
+ * 「今日」「昨日」で入力の 9 割が済むので、カレンダーを開かせない。
+ */
+export function dateShortcuts(now: Date): { label: string; value: string }[] {
+  return [
+    { label: "今日", value: toDateKey(daysAgo(now, 0)) },
+    { label: "昨日", value: toDateKey(daysAgo(now, 1)) },
+  ];
+}
+
 /** `Date` → `"2026/11/07"`（編集画面の表示） */
 export function formatDateSlashed(date: Date): string {
   return `${date.getUTCFullYear()}/${pad(date.getUTCMonth() + 1)}/${pad(date.getUTCDate())}`;

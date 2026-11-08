@@ -41,7 +41,7 @@ export function MagicLinkForm() {
         variant="secondary"
         size="lg"
         className="w-full"
-        disabled={pending}
+        pending={pending}
       >
         {pending ? "送信中…" : "ログインリンクを送る"}
       </Button>

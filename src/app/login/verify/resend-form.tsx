@@ -44,7 +44,7 @@ export function ResendForm() {
         variant="secondary"
         size="lg"
         className="w-full"
-        disabled={pending}
+        pending={pending}
       >
         {pending ? "送信中…" : "確認メールを再送する"}
       </Button>

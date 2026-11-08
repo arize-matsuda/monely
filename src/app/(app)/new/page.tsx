@@ -5,7 +5,7 @@ import { requireMember } from "@/lib/auth";
 import { requestNow } from "@/lib/clock";
 import { listMembers } from "@/lib/data/household";
 import { listCategories, USAGE_WINDOW_DAYS } from "@/lib/data/transactions";
-import { daysAgo, todayKey } from "@/lib/month";
+import { dateShortcuts, daysAgo, todayKey } from "@/lib/month";
 
 export const metadata = { title: "記録する | Monely" };
 
@@ -44,6 +44,7 @@ export default async function NewTransactionPage() {
           paidById: me.profileId,
           memo: "",
         }}
+        dateShortcuts={dateShortcuts(now)}
         submitLabel="保存する"
         pendingLabel="保存中…"
       />

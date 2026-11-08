@@ -49,7 +49,7 @@ export function PasswordForm() {
           required
         />
       </Field>
-      <Button type="submit" className="w-full" disabled={pending}>
+      <Button type="submit" className="w-full" pending={pending}>
         {pending ? "変更中…" : "パスワードを変更する"}
       </Button>
     </form>

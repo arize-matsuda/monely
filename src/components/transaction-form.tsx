@@ -38,6 +38,12 @@ type Props = {
   categories: readonly CategoryOption[];
   members: readonly MemberOption[];
   initial: TransactionFormValues;
+  /**
+   * 日付の「今日 / 昨日」（UI/UX設計 §5.5）。
+   * **サーバーで作って渡す。** ここで new Date() を読むと
+   * ハイドレーションがずれる（coding-standards §8.0）。
+   */
+  dateShortcuts: readonly { label: string; value: string }[];
   submitLabel: string;
   pendingLabel: string;
   /** 編集画面の削除ボタンなど */
@@ -60,6 +66,7 @@ export function TransactionForm({
   categories,
   members,
   initial,
+  dateShortcuts,
   submitLabel,
   pendingLabel,
   footer,
@@ -68,6 +75,7 @@ export function TransactionForm({
   const [kind, setKind] = useState<Kind>(initial.kind);
   const [amount, setAmount] = useState(initial.amount);
   const [categoryId, setCategoryId] = useState(initial.categoryId);
+  const [occurredOn, setOccurredOn] = useState(initial.occurredOn);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const amountId = useId();
@@ -211,13 +219,32 @@ export function TransactionForm({
                 htmlFor={dateId}
                 error={errorFor(state, "occurredOn")}
               >
-                <TextInput
-                  id={dateId}
-                  type="date"
-                  name="occurredOn"
-                  defaultValue={initial.occurredOn}
-                  required
-                />
+                <div className="flex flex-col gap-2">
+                  <TextInput
+                    id={dateId}
+                    type="date"
+                    name="occurredOn"
+                    value={occurredOn}
+                    onChange={(event) => setOccurredOn(event.target.value)}
+                    required
+                  />
+                  {/* カレンダーを開かせずに済む分だけタップ数が減る */}
+                  <div className="flex gap-2">
+                    {dateShortcuts.map((shortcut) => (
+                      <Button
+                        key={shortcut.value}
+                        type="button"
+                        variant={
+                          occurredOn === shortcut.value ? "default" : "outline"
+                        }
+                        onClick={() => setOccurredOn(shortcut.value)}
+                        aria-pressed={occurredOn === shortcut.value}
+                      >
+                        {shortcut.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               </Row>
 
               <Row
@@ -260,7 +287,7 @@ export function TransactionForm({
 
       {/* 画面下部（親指が届く位置）。やめるときは左上の ✕ */}
       <div className="flex flex-col gap-2">
-        <Button type="submit" size="lg" disabled={pending || !canSubmit}>
+        <Button type="submit" size="lg" pending={pending} disabled={!canSubmit}>
           {pending ? pendingLabel : submitLabel}
         </Button>
         {footer}

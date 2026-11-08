@@ -63,7 +63,7 @@ export function AddCategoryForm({ kind }: { kind: Kind }) {
           autoFocus
           aria-invalid={message ? true : undefined}
         />
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" pending={pending}>
           {pending ? "追加中…" : "追加"}
         </Button>
       </div>
@@ -75,7 +75,6 @@ export function AddCategoryForm({ kind }: { kind: Kind }) {
       <Button
         type="button"
         variant="ghost"
-        size="sm"
         onClick={() => setOpen(false)}
         className="self-start text-muted-foreground"
       >
