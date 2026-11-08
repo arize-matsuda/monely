@@ -29,7 +29,7 @@
 | | |
 | --- | --- |
 | **進行中のマイルストーン** | **M3（記録と一覧 = v1 の本体）** |
-| **次にやること** | M3-5〜8 ホーム画面（月切り替え・合計・日付グループ化・空表示） |
+| **次にやること** | M3-17〜20 受入条件の確認（**手作業**。実際に記録してみる） |
 | **方針変更** | 2026-11-07 認可をアプリ層へ（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）/ 2026-11-08 認証をメール+パスワードへ（[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）/ 同日 認証基盤を better-auth へ（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)） |
 | **ブロッカー** | なし |
 
@@ -330,18 +330,18 @@ Next.js encountered uncached data during a navigation.
 - [x] M3-4b `src/lib/data/household.test.ts` — 世帯 DAL の **認可テスト 13 件**（2026-11-08）
 - [x] M3-30 `src/lib/data/auth-adapter.ts` — better-auth の DB アダプタを DAL 側に移動（約束 A を守るため）（2026-11-08）
 - [x] M3-4 `src/lib/data/household.ts`（M2 で実装済み。`getMyHousehold` / `listMembers` / 更新系）
-- [ ] M3-5 ホーム画面 — 月切り替え（`?m=` の読み取り、不正値の扱い）
-- [ ] M3-6 ホーム画面 — 月次合計の表示
-- [ ] M3-7 ホーム画面 — 日付グループ化した一覧
-- [ ] M3-8 ホーム画面 — 空表示
-- [ ] M3-9 `createTransaction` アクション（検証）— **参照先の所属確認は DAL 側で実装済み**
-- [ ] M3-10 `/new` — 種別タブ、金額入力（Client Component）
-- [ ] M3-11 `/new` — カテゴリ選択
-- [ ] M3-12 `/new` — 折りたたみ項目（日付・支払った人・メモ）
-- [ ] M3-13 `updateTransaction` / `deleteTransaction` アクション — **DAL と認可テストは実装済み**
-- [ ] M3-14 `/transactions/[id]` — 編集フォーム
-- [ ] M3-15 `/transactions/[id]` — 削除（確認付き）、見つからない表示
-- [ ] M3-16 エラー表示（入力エラー・保存失敗で入力が消えないこと）
+- [x] M3-5 ホーム画面 — 月切り替え（`MonthSwitcher`）（2026-11-08）
+- [x] M3-6 ホーム画面 — 月次合計（`MonthSummary`）（2026-11-08）
+- [x] M3-7 ホーム画面 — 日付グループ化した一覧（`TransactionList` / `groupByDate` ＋ テスト 8 件）（2026-11-08）
+- [x] M3-8 ホーム画面 — 空表示（`EmptyMonth`）（2026-11-08）
+- [x] M3-9 `createTransaction` アクション（2026-11-08）
+- [x] M3-10 `/new` — 種別タブ、金額入力（`TransactionForm`。**開いた瞬間に金額を打てる**）（2026-11-08）
+- [x] M3-11 `/new` — カテゴリ選択（1 タップ。種別で選択肢が入れ替わる）（2026-11-08）
+- [x] M3-12 `/new` — 折りたたみ項目（日付・支払った人・メモ）（2026-11-08）
+- [x] M3-13 `updateTransaction` / `deleteTransaction` アクション（2026-11-08）
+- [x] M3-14 `/transactions/[id]` — 編集フォーム（`TransactionForm` を共有）（2026-11-08）
+- [x] M3-15 `/transactions/[id]` — 削除（確認付き）、見つからない表示（2026-11-08）
+- [x] M3-16 エラー表示（`useActionState` なので保存失敗でも入力が残る）（2026-11-08）
 - [ ] M3-17 受入条件 AC-4〜AC-8 を実施
 - [ ] M3-18 **受入条件 AC-9 を再実施**
 - [ ] M3-19 [テスト戦略 §4.3](../03-guidelines/testing-strategy.md#44-金額と日付の確認m3)（金額と日付の確認。**全角数字を含む**）
@@ -354,6 +354,17 @@ Next.js encountered uncached data during a navigation.
 （なし）
 
 ---
+
+### M3-5〜16 で判断したこと
+
+| 事項 | 内容 |
+| --- | --- |
+| **タイムゾーンを JST 固定にした** | 「今日 / 昨日」をサーバーで判定するため。本番（Vercel など）の既定は UTC で、JST とは 9 時間ずれるので **1 日のうち 9 時間が誤表示**になる。端末ごとのタイムゾーンを扱うには日付見出しを Client Component にする必要があり、ハイドレーションの不一致かちらつきが出る。**利用者が日本の一家族なので `TZ=Asia/Tokyo` が最も単純で正確**。NFR-D8 / NFR-O7 に記録した |
+| 金額は表示と送信を分けた | 入力欄には 3 桁区切りで見せ、`hidden` で数字だけ送る。`"1,280"` という文字列を保存しない |
+| 種別を変えたらカテゴリをクリアする | 支出に収入カテゴリが残ると DAL の種別チェックで弾かれる。UI 側で先に外す |
+| `label` で包む暗黙の関連付けは Biome が通さない | `children` の中に input があることを静的に判断できない。`htmlFor` で明示した（入れ替えに強くもなる） |
+| 削除の確認にダイアログを使わない | コンポーネント内の状態で確認を出す。スマホでの表示が安定する |
+| 下部の固定ボタンは M4 で下部タブに置き換える | いまは「記録する」「設定」を画面下に固定。`env(safe-area-inset-bottom)` を見ている |
 
 ### M3-3 で分かったこと（認可テスト）
 

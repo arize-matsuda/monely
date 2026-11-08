@@ -1,4 +1,5 @@
-import { type ActionResult, fail, ok } from "./types";
+import { parseDateKey } from "./month";
+import { type ActionResult, fail, type Kind, ok } from "./types";
 
 /**
  * 入力検証。**サーバー側で必ず通す。** クライアント側の検証は利便性のためのもの。
@@ -161,4 +162,42 @@ export function parsePasswordConfirmation(
     );
   }
   return ok(password);
+}
+
+/** 種別。許可リストで照合する */
+export function parseKind(
+  value: FormDataEntryValue | null,
+): ActionResult<Kind> {
+  const kind = asString(value);
+  if (kind === "expense" || kind === "income") return ok(kind);
+  return fail("VALIDATION", "種別を選んでください", "kind");
+}
+
+/** 日付。`YYYY-MM-DD` を UTC 0 時の Date にする（@db.Date と揃える） */
+export function parseOccurredOn(
+  value: FormDataEntryValue | null,
+): ActionResult<Date> {
+  const raw = normalizeDigits(asString(value)).trim();
+  if (raw.length === 0) {
+    return fail("VALIDATION", "日付を入力してください", "occurredOn");
+  }
+  const date = parseDateKey(raw);
+  if (!date) {
+    return fail("VALIDATION", "日付の形式が正しくありません", "occurredOn");
+  }
+  return ok(date);
+}
+
+/** 任意の ID。空文字は null として扱う */
+export function parseOptionalId(
+  value: FormDataEntryValue | null,
+  field: string,
+): ActionResult<string | null> {
+  const id = asString(value).trim();
+  if (id.length === 0) return ok(null);
+  // 形式の詳細は DAL の所属確認で弾かれるので、ここは長さだけ見る
+  if (id.length > 64) {
+    return fail("VALIDATION", "選択内容が正しくありません", field);
+  }
+  return ok(id);
 }

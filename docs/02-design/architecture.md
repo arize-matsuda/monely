@@ -330,6 +330,7 @@ node -e 'import("better-auth/db").then(m => console.log(m.getAuthTables(options)
 | `BETTER_AUTH_SECRET` | セッションの署名鍵 | **非公開。漏れるとセッションを偽造できる** |
 | `BETTER_AUTH_URL` | アプリの URL（リンクの組み立てに使う） | 公開してよい |
 | `RESEND_API_KEY` | メール送信。**未設定なら開発モード（コンソール出力）** | 非公開 |
+| `TZ` | **`Asia/Tokyo` 固定。**「今日 / 昨日」の判定に使う（NFR-D8） | 公開してよい |
 | `MAIL_FROM` | 送信元アドレス | 公開してよい |
 
 **ブラウザに出る変数は現在 1 つも無い**（`NEXT_PUBLIC_` 付きの変数が存在しない）。
