@@ -626,7 +626,10 @@ Next.js encountered the unstable value new Date() while prerendering.
 
 ### 未着手
 
-- [ ] M5-1 **デプロイ先を決める**（未確定事項 #1）
+- [x] M5-1 **デプロイ先を決める** → **Vercel**（2026-11-09）
+- [x] M5-1b ビルドで `prisma generate` が走るようにする（2026-11-09）
+  - `src/generated/` は gitignore しているので、**これが無いと Vercel のビルドは必ず失敗する**
+  - `prisma.config.ts` が `env("DIRECT_URL")` を即時解決するため、`postinstall` ではなく `build` に置く（`DIRECT_URL` 無しで `prisma generate` が失敗することを実測）
 - [ ] M5-2 デプロイする
 - [ ] M5-3 Supabase の Redirect URLs に本番 URL を追加
 - [x] M5-4 アイコンを作る（2026-11-08、**デザインは仮**）
@@ -652,7 +655,7 @@ Next.js encountered the unstable value new Date() while prerendering.
 
 | # | 内容 | 判断の期限 | 状態 |
 | --- | --- | --- | --- |
-| 1 | デプロイ先（Vercel / 自前サーバー） | M5 の着手前 | **未決** |
+| 1 | デプロイ先（Vercel / 自前サーバー） | M5 の着手前 | **Vercel に決定**（2026-11-09）。手順 → [アーキテクチャ §8.2](../02-design/architecture.md#82-vercel-へのデプロイ) |
 | 2 | PWA アイコンのデザイン | M5 | **仮のものを置いた**（インディゴ地に ¥）。差し替えは任意 |
 | 3 | v2 で最初に作る機能（内訳 or 予算） | v1 を 1 か月使ってから | 未決 |
 

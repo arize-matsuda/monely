@@ -346,6 +346,58 @@ node -e 'import("better-auth/db").then(m => console.log(m.getAuthTables(options)
 
 ---
 
+### 8.2 Vercel へのデプロイ
+
+デプロイ先は **Vercel**（2026-11-09 決定。未確定事項 #1）。
+
+#### ビルドで `prisma generate` が必要
+
+`src/generated/` は `.gitignore` に入れてあるので、**Prisma Client はリポジトリに無い。**
+そのため `build` スクリプトを `prisma generate && next build` にしてある。
+
+`prisma.config.ts` は `env("DIRECT_URL")` を**即時に解決する**ので、
+`DIRECT_URL` が無いと `prisma generate` 自体が失敗する（実測）。
+環境変数が揃う build 段階で実行する必要があり、`postinstall` には置けない。
+
+#### 環境変数（Vercel の Project Settings → Environment Variables）
+
+§8 の表の変数をすべて設定する。注意点:
+
+| 変数 | Vercel での値 |
+| --- | --- |
+| `DATABASE_URL` | Transaction pooler（**6543**）。サーバーレスでは接続数が増えるのでこちらが必須 |
+| `DIRECT_URL` | Session pooler（5432）。ビルド時の `prisma generate` とマイグレーションで使う |
+| `BETTER_AUTH_URL` | **本番の URL**（`https://<project>.vercel.app` など）。ローカルの値のままだとメールのリンクが localhost を指す |
+| `TZ` | `Asia/Tokyo`（下記の注意） |
+| `RESEND_API_KEY` / `MAIL_FROM` | **家族を招待する前に必須。** 未設定だとサーバーのコンソールに確認リンクが出るだけで、誰も登録を完了できない |
+
+#### `TZ` が最大のリスク（NFR-D8 / NFR-O7）
+
+このアプリは「今日 / 昨日」の判定をサーバーの時計で行うため、
+**サーバーが JST でないと 1 日のうち 9 時間が誤表示になる。**
+
+`TZ=Asia/Tokyo` を環境変数に設定するのが前提だが、**実行環境によっては
+`TZ` が無視されることがある。** デプロイ後に必ず次を確認する。
+
+1. 日本時間の 0 時〜9 時のあいだに記録を 1 件作る
+2. 一覧の日付見出しが「今日」になっているか見る（前日になっていたら `TZ` が効いていない）
+
+効いていない場合は、`src/lib/month.ts` の日付の取り出しを
+**プロセスの TZ に依存しない形**（`Intl.DateTimeFormat` に
+`timeZone: "Asia/Tokyo"` を渡す）に変える。
+
+#### マイグレーションは自動実行しない
+
+`prisma migrate deploy` を build に含めていない。**ビルドのたびに本番の
+スキーマが変わる状態にしたくない**ため。スキーマを変えたときは、
+手元から `pnpm db:deploy` を実行してからデプロイする。
+
+#### 定期支出の自動実行（M4-22、未実施）
+
+[ADR-0011](../05-decisions/ADR-0011-tier1-and-recurring.md) の
+`registerRecurring` を Vercel Cron から呼べるようにする。
+**本番 URL が決まってから着手する**（Cron の認証に共有の秘密鍵が必要）。
+
 ## 9. 意図的に採用しなかった構成
 
 | 選ばなかったもの | 理由 |
