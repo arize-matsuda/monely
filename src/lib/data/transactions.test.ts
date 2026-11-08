@@ -9,6 +9,7 @@ import {
 } from "@/test/db";
 import { prisma } from "./db";
 import {
+  createRecurringForMe,
   createTransactionForMe,
   deleteTransactionForMe,
   getTransaction,
@@ -95,6 +96,7 @@ describe("記録の DAL", () => {
         categoryId: null,
         paidById: null,
         memo: "10月末",
+        recurring: false,
       });
       await createTransactionForMe({
         kind: "expense",
@@ -103,6 +105,7 @@ describe("記録の DAL", () => {
         categoryId: null,
         paidById: null,
         memo: "12月初",
+        recurring: false,
       });
       expect(await listTransactionsByMonth("2026-10")).toHaveLength(1);
       expect(await listTransactionsByMonth(MONTH)).toHaveLength(1);
@@ -119,6 +122,7 @@ describe("記録の DAL", () => {
           categoryId: null,
           paidById: null,
           memo: day,
+          recurring: false,
         });
       }
       const rows = await listTransactionsByMonth(MONTH);
@@ -209,6 +213,70 @@ describe("記録の DAL", () => {
       const rows = await listTransactionsByYear(2026);
       expect(rows[0]?.category?.name).toBe("食費");
       expect(rows[0]?.paidBy?.displayName).toBeTruthy();
+    });
+  });
+
+  describe("createRecurringForMe", () => {
+    const entry = {
+      kind: "expense" as const,
+      amount: 85000,
+      occurredOn: new Date("2026-11-25T00:00:00.000Z"),
+      categoryId: null,
+      paidById: null,
+      memo: "家賃",
+    };
+
+    it("まとめて作る", async () => {
+      as(a.member);
+      const result = await createRecurringForMe([
+        entry,
+        { ...entry, amount: 4980, memo: "通信" },
+      ]);
+      expect(result).toMatchObject({ ok: true, data: { count: 2 } });
+    });
+
+    it("★ 自分の世帯に作る（householdId は me から埋める）", async () => {
+      as(b.member);
+      await createRecurringForMe([entry]);
+      const rows = await prisma.transaction.findMany({
+        where: { memo: "家賃" },
+        select: { householdId: true, createdById: true },
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.householdId).toBe(b.householdId);
+      expect(rows[0]?.createdById).toBe(b.member.profileId);
+    });
+
+    // 写した記録にも印が付く。翌月も候補に出るようにするため（FR-R3）
+    it("作った記録には recurring の印が付く", async () => {
+      as(a.member);
+      await createRecurringForMe([entry]);
+      const row = await prisma.transaction.findFirst({
+        where: { memo: "家賃" },
+      });
+      expect(row?.recurring).toBe(true);
+    });
+
+    it("空の配列では何も作らない", async () => {
+      as(a.member);
+      const before = await prisma.transaction.count();
+      expect(await createRecurringForMe([])).toMatchObject({
+        ok: true,
+        data: { count: 0 },
+      });
+      expect(await prisma.transaction.count()).toBe(before);
+    });
+
+    it("カテゴリと支払った人を引き継げる", async () => {
+      as(a.member);
+      await createRecurringForMe([
+        { ...entry, categoryId: a.categoryId, paidById: a.member.profileId },
+      ]);
+      const row = await prisma.transaction.findFirst({
+        where: { memo: "家賃" },
+      });
+      expect(row?.categoryId).toBe(a.categoryId);
+      expect(row?.paidById).toBe(a.member.profileId);
     });
   });
 
@@ -348,6 +416,7 @@ describe("記録の DAL", () => {
         categoryId: a.categoryId,
         paidById: a.member.profileId,
         memo: null,
+        recurring: false,
       });
       expect(result.ok).toBe(true);
       if (!result.ok) return;
@@ -366,6 +435,7 @@ describe("記録の DAL", () => {
         categoryId: a.categoryId, // A のカテゴリ
         paidById: null,
         memo: null,
+        recurring: false,
       });
       expect(result).toMatchObject({
         ok: false,
@@ -382,6 +452,7 @@ describe("記録の DAL", () => {
         categoryId: null,
         paidById: a.member.profileId, // A のメンバー
         memo: null,
+        recurring: false,
       });
       expect(result).toMatchObject({
         ok: false,
@@ -398,6 +469,7 @@ describe("記録の DAL", () => {
         categoryId: a.categoryId,
         paidById: null,
         memo: null,
+        recurring: false,
       });
       expect(result).toMatchObject({
         ok: false,
@@ -414,6 +486,7 @@ describe("記録の DAL", () => {
         categoryId: null,
         paidById: null,
         memo: null,
+        recurring: false,
       });
       expect(result.ok).toBe(true);
     });
@@ -428,6 +501,7 @@ describe("記録の DAL", () => {
       categoryId: null,
       paidById: null,
       memo: "更新後",
+      recurring: false,
     };
 
     it("自分の世帯の記録を更新できる", async () => {

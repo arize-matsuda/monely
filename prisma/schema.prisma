@@ -116,6 +116,10 @@ model Transaction {
   /// 支払った人。メンバーが抜けても記録は残す
   paidById    String?  @map("paid_by") @db.Uuid
   memo        String?  @db.VarChar(200)
+  /// 毎月くり返す支出の印（FR-R1 / ADR-0011）。
+  /// **写した記録にも印が付く**ので、翌月も同じ仕組みで候補に出る。
+  /// 「定期のルール」を別テーブルで持たない判断 → ADR-0011
+  recurring   Boolean  @default(false)
   /// 入力した人。DAL でセッションから埋める。引数で受け取らない
   createdById String   @map("created_by") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)

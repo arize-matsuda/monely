@@ -57,6 +57,8 @@ export default async function NewTransactionPage({
           ...prefill,
           // 日付は常に今日。複製でも引き継がない（FR-T3）
           occurredOn: todayKey(now),
+          // 新規は既定で off。複製元が定期でも、押したのは「今月分を 1 件」
+          recurring: false,
         }}
         dateShortcuts={dateShortcuts(now)}
         submitLabel="保存する"

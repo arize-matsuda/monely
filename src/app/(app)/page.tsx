@@ -5,6 +5,7 @@ import { MissingCategoriesNotice } from "@/components/missing-categories-notice"
 import { MonthSummary } from "@/components/month-summary";
 import { MonthSwitcher } from "@/components/month-switcher";
 import { PayerSplit } from "@/components/payer-split";
+import { RecurringNotice } from "@/components/recurring-notice";
 import { TransactionList } from "@/components/transaction-list";
 import { requestNow } from "@/lib/clock";
 import { listBudgets } from "@/lib/data/budgets";
@@ -12,6 +13,7 @@ import { listMembers } from "@/lib/data/household";
 import { listTransactionsByMonth } from "@/lib/data/transactions";
 import { summarize } from "@/lib/money";
 import { currentMonth, parseMonth, prevMonth } from "@/lib/month";
+import { recurringCandidates } from "@/lib/recurring";
 
 // セッションを読むため、サーバーでブロックして描画する。
 //
@@ -51,8 +53,15 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   ]);
   const summary = summarize(rows);
   const previous = summarize(previousRows);
-  // 入れ忘れの提示は今月だけ。終わった月に出しても意味が無い（FR-L11）
+  // 入れ忘れの提示と定期支出の登録は今月だけ。
+  // 終わった月に出しても意味が無い（FR-L11 / FR-R2）
   const showMissing = month === currentMonth(now);
+  const candidates = showMissing
+    ? recurringCandidates(previousRows, rows, month).map((candidate) => ({
+        name: candidate.memo ?? candidate.categoryName ?? "記録",
+        amount: candidate.amount,
+      }))
+    : [];
 
   return (
     <main className="mx-auto w-full max-w-[480px] flex-1 px-4 pt-4 pb-28 md:max-w-6xl md:px-8 md:pt-8 md:pb-10">
@@ -63,7 +72,8 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         <div className="md:order-2 md:sticky md:top-8 md:flex md:flex-col md:gap-4">
           <MonthSummary summary={summary} previous={previous} />
           {showMissing ? (
-            <div className="mt-4 md:mt-0">
+            <div className="mt-4 flex flex-col gap-4 md:mt-0">
+              <RecurringNotice candidates={candidates} />
               <MissingCategoriesNotice
                 rows={rows}
                 previousRows={previousRows}

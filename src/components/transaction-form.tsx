@@ -28,6 +28,8 @@ export type TransactionFormValues = {
   categoryId: string;
   paidById: string;
   memo: string;
+  /** 毎月くり返す支出の印（FR-R1） */
+  recurring: boolean;
 };
 
 type Props = {
@@ -280,6 +282,26 @@ export function TransactionForm({
                   placeholder="任意"
                 />
               </Row>
+
+              {/*
+                毎月くり返す支出の印（FR-R1）。
+                印が付いた記録は、翌月にホームから一括で登録できる。
+                チェックボックスは未チェックだと何も送られない
+              */}
+              <label className="flex min-h-11 cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  name="recurring"
+                  defaultChecked={initial.recurring}
+                  className="size-5 shrink-0 accent-primary"
+                />
+                <span className="flex flex-col">
+                  <span className="text-sm">毎月くり返す</span>
+                  <span className="text-xs text-muted-foreground">
+                    家賃やサブスクなど。翌月にまとめて登録できます
+                  </span>
+                </span>
+              </label>
             </div>
           </CollapsibleContent>
         </Card>

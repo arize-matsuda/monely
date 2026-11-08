@@ -60,6 +60,8 @@ function parseInput(formData: FormData): ActionResult<TransactionInput> {
       categoryId: categoryId.data,
       paidById: paidById.data,
       memo: memo.data,
+      // チェックボックスは未チェックだと何も送られない（FR-R1）
+      recurring: formData.get("recurring") === "on",
     },
   };
 }

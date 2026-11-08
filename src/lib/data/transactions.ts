@@ -122,6 +122,47 @@ export async function listCategories(kind: Kind, usageSince: Date) {
     .sort((x, y) => y.recentCount - x.recentCount);
 }
 
+/**
+ * 定期支出をまとめて作る（FR-R2）。
+ *
+ * **`createMany` を使う。** 1 件ずつ作ると件数ぶんの往復になる。
+ * `householdId` と `createdById` は me から埋める（約束 B）。
+ *
+ * 参照先（categoryId / paidById）の所属は、**呼び出し側が先月の
+ * 自分の世帯の記録から作った値**なので改めて確認しない。
+ * 外から渡される経路が無い（Server Action は ID を受け取らない）。
+ */
+export async function createRecurringForMe(
+  entries: readonly {
+    kind: Kind;
+    amount: number;
+    occurredOn: Date;
+    categoryId: string | null;
+    paidById: string | null;
+    memo: string | null;
+  }[],
+): Promise<ActionResult<{ count: number }>> {
+  const me = await requireMember();
+  if (entries.length === 0) return ok({ count: 0 });
+
+  const result = await prisma.transaction.createMany({
+    data: entries.map((entry) => ({
+      householdId: me.householdId, // ← クライアントから受け取らない
+      createdById: me.profileId, // ← 同上
+      kind: entry.kind,
+      amount: entry.amount,
+      occurredOn: entry.occurredOn,
+      categoryId: entry.categoryId,
+      paidById: entry.paidById,
+      memo: entry.memo,
+      // 写した記録にも印を付ける。翌月も候補に出るようにする
+      recurring: true,
+    })),
+  });
+
+  return ok({ count: result.count });
+}
+
 export type TransactionInput = {
   kind: Kind;
   /** 円の正の整数 */
@@ -131,6 +172,8 @@ export type TransactionInput = {
   categoryId: string | null;
   paidById: string | null;
   memo: string | null;
+  /** 毎月くり返す支出の印（FR-R1） */
+  recurring: boolean;
 };
 
 /**
@@ -191,6 +234,7 @@ export async function createTransactionForMe(
       categoryId: input.categoryId,
       paidById: input.paidById,
       memo: input.memo,
+      recurring: input.recurring,
     },
     select: { id: true },
   });
@@ -220,6 +264,7 @@ export async function updateTransactionForMe(
       categoryId: input.categoryId,
       paidById: input.paidById,
       memo: input.memo,
+      recurring: input.recurring,
     },
   });
 

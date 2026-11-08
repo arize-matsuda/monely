@@ -86,6 +86,7 @@ erDiagram
         String categoryId FK "null可 = 未分類"
         String paidById FK "null可"
         String memo "200文字"
+        Boolean recurring "毎月くり返す印"
         String createdById FK
         DateTime createdAt
         DateTime updatedAt
@@ -167,11 +168,13 @@ erDiagram
 | `categoryId` | String? | FK → Category, `onDelete: SetNull` | null = 未分類 |
 | `paidById` | String? | FK → Profile, `onDelete: SetNull` | メンバーが抜けても記録は残る（NFR-D5） |
 | `memo` | String? | `VarChar(200)` | |
+| `recurring` | Boolean | default `false` | 毎月くり返す支出の印（FR-R1）。**写した記録にも付く**ので翌月も候補に出る |
 | `createdById` | String | FK → Profile, `onDelete: Cascade` | DAL でセッションから埋める |
 | `createdAt` | DateTime | default now | |
 | `updatedAt` | DateTime | `@updatedAt` | Prisma が更新する |
 
 - インデックス: `(householdId, occurredOn desc, createdAt desc)` — 月次一覧がそのまま乗る（NFR-P4）
+- **部分インデックス**: `(householdId, occurredOn desc) WHERE recurring` — 定期の候補を引く用。`recurring = false` の大多数をインデックスに載せない（マイグレーション `0005_recurring`）
 - **`amount` を符号付きにしない理由**: 集計で `kind` の指定を忘れたときに、静かに間違った値が出るのを避ける。
 
 ### 3.4.1 `Budget` — カテゴリごとの月予算

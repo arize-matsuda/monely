@@ -93,6 +93,7 @@ export default async function EditTransactionPage({
           categoryId: transaction.categoryId ?? "",
           paidById: transaction.paidById ?? "",
           memo: transaction.memo ?? "",
+          recurring: transaction.recurring,
         }}
         dateShortcuts={dateShortcuts(now)}
         submitLabel="更新する"

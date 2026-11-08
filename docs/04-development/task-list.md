@@ -29,7 +29,7 @@
 | | |
 | --- | --- |
 | **進行中のマイルストーン** | **M4（スマホ UI の仕上げ）**。M3 = v1 は 2026-11-08 に完了 |
-| **次にやること** | 年のページ・PC レイアウト・先月比の画面確認（手作業）。そのあと M5-1 デプロイ先 |
+| **次にやること** | **本番マイグレーション（`pnpm db:deploy`、0004 と 0005）** → 画面確認 → M5-1 デプロイ先 |
 | **UI の満足度** | 2026-11-08 shadcn 化後も「まだ良いとは思えない」との評価。**PC はスマホと別のレイアウトにしたい**（サイドバー、図）という要望あり |
 | **方針変更** | 2026-11-07 認可をアプリ層へ（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md)）/ 2026-11-08 認証をメール+パスワードへ（[ADR-0006](../05-decisions/ADR-0006-email-password-auth.md)）/ 同日 認証基盤を better-auth へ（[ADR-0007](../05-decisions/ADR-0007-better-auth.md)）/ 同日 UI に shadcn/ui を採用（[ADR-0008](../05-decisions/ADR-0008-shadcn-ui.md)） |
 | **ブロッカー** | なし |
@@ -520,6 +520,20 @@ Next.js encountered the unstable value new Date() while prerendering.
   - 先月が 0 のときは割合を出さない（0 で割らない）
   - ホームが先月ぶんの行も取る。**合計だけの DAL 関数は足さない**（認可の面を増やさない）
   - [ ] 画面での確認（手作業）
+
+- [x] M4-21 **Tier 3: 定期支出（手動トリガー版）**（FR-R1〜R3）（2026-11-09）
+  - [ADR-0011](../05-decisions/ADR-0011-tier1-and-recurring.md)
+  - **マイグレーション `0005_recurring`。列の追加のみ**（既定値 false なので既存行は影響なし）
+  - **本番適用は未実施**（`pnpm db:deploy` はあなたの操作）
+  - 部分インデックス `WHERE recurring` を付けた（false の大多数を載せない）
+  - 判定は純関数 `recurringCandidates`（テスト 20 件）。**1/31 → 2/28 の寄せも確認**
+  - DAL `createRecurringForMe` + **認可テスト 5 件**
+  - ホームに「毎月の支出」カード。**押すまで何も起きない**
+  - [ ] 画面での確認（手作業）
+
+- [ ] **M4-22 自動実行とリマインド通知** — **デプロイ先の決定待ち（M5-1）**
+  - 定期支出の Cron 化: `registerRecurring` をそのまま呼べる形にしてある
+  - リマインド通知: プッシュには公開 HTTPS と VAPID 鍵が必要で、**検証する手段が無いため未着手**
 
 - [x] M4-20 **Tier 2: カテゴリごとの月予算**（FR-B1〜B3）（2026-11-09）
   - [ADR-0011](../05-decisions/ADR-0011-tier1-and-recurring.md)

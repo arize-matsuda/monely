@@ -9,6 +9,7 @@ import { MissingCategoriesNotice } from "./missing-categories-notice";
 import { MonthSummary } from "./month-summary";
 import { MonthSwitcher } from "./month-switcher";
 import { PayerSplit } from "./payer-split";
+import { RecurringNotice } from "./recurring-notice";
 import { TransactionList } from "./transaction-list";
 import { TransactionRow } from "./transaction-row";
 import { YearOverview } from "./year-overview";
@@ -414,5 +415,27 @@ describe("予算の表示（FR-B2 / ADR-0011）", () => {
       />,
     );
     expect(html).not.toContain("予算");
+  });
+});
+
+describe("定期支出（FR-R2 / ADR-0011）", () => {
+  it("候補の件数と合計を出す", () => {
+    const html = renderToStaticMarkup(
+      <RecurringNotice
+        candidates={[
+          { name: "家賃", amount: 85000 },
+          { name: "通信", amount: 4980 },
+        ]}
+      />,
+    );
+    expect(html).toContain("家賃");
+    expect(html).toContain("¥85,000");
+    expect(html).toContain("2 件");
+    // 合計
+    expect(html).toContain("¥89,980");
+  });
+
+  it("候補が無ければ何も描かない", () => {
+    expect(renderToStaticMarkup(<RecurringNotice candidates={[]} />)).toBe("");
   });
 });
