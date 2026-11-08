@@ -3,7 +3,10 @@ import { ArrowDownLeft, ArrowUpRight, Scale } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
+  compareAmount,
   formatBalance,
+  formatDiff,
+  formatDiffRatio,
   formatIncome,
   formatYen,
   type Summary,
@@ -11,11 +14,27 @@ import {
 import { cn } from "@/lib/utils";
 
 /**
- * 月次の合計（FR-L4）。この画面で一番見る数字なので大きく出す。
+ * 月次の合計（FR-L4）と先月との比較（FR-L9）。
+ *
+ * この画面で一番見る数字なので大きく出す。
  * 支出は中立色（赤にしない。毎日のことなので一覧が警告だらけになる）。
+ *
+ * **増減に色を付けない。** 支出が増えたことを赤で出すと、
+ * 月初（まだ記録が少ない月）が常に「改善」に見えてしまう。
+ * 矢印の向きだけで示し、判断は利用者に委ねる。
  */
-export function MonthSummary({ summary }: { summary: Summary }) {
+export function MonthSummary({
+  summary,
+  previous,
+}: {
+  summary: Summary;
+  /** 先月の合計。無い場合（データが無い月）は比較を出さない */
+  previous?: Summary;
+}) {
   const deficit = summary.balance < 0;
+  // 先月に記録が 1 件も無ければ比較の意味が無い
+  const hasPrevious =
+    previous !== undefined && (previous.expense > 0 || previous.income > 0);
 
   return (
     <Card>
@@ -25,12 +44,16 @@ export function MonthSummary({ summary }: { summary: Summary }) {
             icon={ArrowUpRight}
             label="支出"
             value={formatYen(summary.expense)}
+            previous={hasPrevious ? previous.expense : undefined}
+            current={summary.expense}
           />
           <Cell
             icon={ArrowDownLeft}
             label="収入"
             value={formatIncome(summary.income)}
             tone="text-income"
+            previous={hasPrevious ? previous.income : undefined}
+            current={summary.income}
           />
         </dl>
 
@@ -60,11 +83,15 @@ function Cell({
   label,
   value,
   tone,
+  current,
+  previous,
 }: {
   icon: LucideIcon;
   label: string;
   value: string;
   tone?: string;
+  current: number;
+  previous?: number;
 }) {
   return (
     <div className="flex flex-col gap-1 rounded-xl bg-muted/60 px-3 py-2.5">
@@ -73,6 +100,29 @@ function Cell({
         {label}
       </dt>
       <dd className={cn("text-lg font-medium tabular-nums", tone)}>{value}</dd>
+      {previous === undefined ? null : (
+        <dd className="text-xs text-muted-foreground">
+          <PreviousMonth current={current} previous={previous} />
+        </dd>
+      )}
     </div>
+  );
+}
+
+/** 「先月比 +¥12,400（+7%）」。先月が 0 のときは割合を出さない */
+function PreviousMonth({
+  current,
+  previous,
+}: {
+  current: number;
+  previous: number;
+}) {
+  const { diff, ratio } = compareAmount(current, previous);
+
+  return (
+    <span className="tabular-nums">
+      先月比 {formatDiff(diff)}
+      {ratio === null || diff === 0 ? null : `（${formatDiffRatio(ratio)}）`}
+    </span>
   );
 }

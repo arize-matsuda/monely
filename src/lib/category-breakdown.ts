@@ -24,18 +24,20 @@ export type CategoryShare = {
   total: number;
   /** 支出合計に対する割合（0〜1）。支出が 0 なら 0 */
   ratio: number;
+  /**
+   * 先月の同じカテゴリの合計（FR-L9）。
+   * 比較対象を渡さなかった場合は undefined。
+   * **先月に無かったカテゴリは 0**（「使っていなかった」と
+   * 「比較していない」を区別するため）。
+   */
+  previousTotal?: number;
 };
 
 /** カテゴリが付いていない記録の表示名。用語集に合わせる */
 export const UNCATEGORIZED_LABEL = "未分類";
 
-/**
- * 金額の多い順に返す。同額なら名前順（表示が入れ替わらないように）。
- * 支出が 1 件も無ければ空配列。
- */
-export function breakdownByCategory(
-  rows: readonly Breakable[],
-): CategoryShare[] {
+/** カテゴリ別の支出合計を数える（内部用） */
+function sumByCategory(rows: readonly Breakable[]) {
   const totals = new Map<string | null, { name: string; total: number }>();
   let expenseTotal = 0;
 
@@ -53,6 +55,23 @@ export function breakdownByCategory(
     }
   }
 
+  return { totals, expenseTotal };
+}
+
+/**
+ * 金額の多い順に返す。同額なら名前順（表示が入れ替わらないように）。
+ * 支出が 1 件も無ければ空配列。
+ *
+ * @param previousRows 先月の行。渡すと `previousTotal` が付く（FR-L9）
+ */
+export function breakdownByCategory(
+  rows: readonly Breakable[],
+  previousRows?: readonly Breakable[],
+): CategoryShare[] {
+  const { totals, expenseTotal } = sumByCategory(rows);
+  const previous =
+    previousRows === undefined ? undefined : sumByCategory(previousRows).totals;
+
   return (
     [...totals.entries()]
       .map(([categoryId, { name, total }]) => ({
@@ -61,6 +80,9 @@ export function breakdownByCategory(
         total,
         // 支出が 0 のときは 0 で割らない
         ratio: expenseTotal === 0 ? 0 : total / expenseTotal,
+        ...(previous === undefined
+          ? {}
+          : { previousTotal: previous.get(categoryId)?.total ?? 0 }),
       }))
       // 同額のときに並びが毎回変わると「動いて見える」ので名前で固定する。
       // localeCompare(ja) は読み順（文字コード順ではない）

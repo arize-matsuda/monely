@@ -7,7 +7,7 @@ import { TransactionList } from "@/components/transaction-list";
 import { requestNow } from "@/lib/clock";
 import { listTransactionsByMonth } from "@/lib/data/transactions";
 import { summarize } from "@/lib/money";
-import { parseMonth } from "@/lib/month";
+import { parseMonth, prevMonth } from "@/lib/month";
 
 // セッションを読むため、サーバーでブロックして描画する。
 //
@@ -31,8 +31,20 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   // 現在時刻はリクエスト時に取る（src/lib/clock.ts のコメント参照）
   const now = await requestNow();
   const month = parseMonth(params.m, now);
-  const rows = await listTransactionsByMonth(month);
+
+  /*
+   * 先月ぶんも取って比較に使う（FR-L9）。
+   *
+   * **合計だけを取る DAL 関数を足していない。** 足すと householdId の
+   * 条件を書き忘れうる場所が 1 つ増える（ADR-0005 の約束 B / ADR-0009）。
+   * 1 か月の件数は家族の家計簿なら数十件なので、行ごと取っても軽い。
+   */
+  const [rows, previousRows] = await Promise.all([
+    listTransactionsByMonth(month),
+    listTransactionsByMonth(prevMonth(month)),
+  ]);
   const summary = summarize(rows);
+  const previous = summarize(previousRows);
 
   return (
     <main className="mx-auto w-full max-w-[480px] flex-1 px-4 pt-4 pb-28 md:max-w-6xl md:px-8 md:pt-8 md:pb-10">
@@ -41,10 +53,10 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       <div className="mt-4 md:mt-6 md:grid md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         {/* スマホでは合計を先に見せたいので、順序を CSS で入れ替える */}
         <div className="md:order-2 md:sticky md:top-8 md:flex md:flex-col md:gap-4">
-          <MonthSummary summary={summary} />
+          <MonthSummary summary={summary} previous={previous} />
           {/* 内訳は PC だけ。スマホは縦に伸びすぎる（ADR-0009） */}
           <div className="hidden md:block">
-            <CategoryBreakdown rows={rows} />
+            <CategoryBreakdown rows={rows} previousRows={previousRows} />
           </div>
         </div>
 

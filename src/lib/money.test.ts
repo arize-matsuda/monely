@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  compareAmount,
   formatAmount,
   formatBalance,
+  formatDiff,
+  formatDiffRatio,
   formatIncome,
   formatYen,
   sumExpense,
@@ -96,5 +99,74 @@ describe("sumExpense", () => {
       { kind: "expense" as const, amount: 180 },
     ];
     expect(sumExpense(rows)).toBe(1460);
+  });
+});
+
+describe("compareAmount", () => {
+  it("増えた分を返す", () => {
+    expect(compareAmount(190000, 180000)).toEqual({
+      diff: 10000,
+      ratio: 10000 / 180000,
+    });
+  });
+
+  it("減った分は負で返す", () => {
+    expect(compareAmount(170000, 180000)).toEqual({
+      diff: -10000,
+      ratio: -10000 / 180000,
+    });
+  });
+
+  it("同じなら 0", () => {
+    expect(compareAmount(180000, 180000)).toEqual({ diff: 0, ratio: 0 });
+  });
+
+  // 0 で割らない。0 からの増加に割合は無い
+  it("先月が 0 なら割合は null", () => {
+    expect(compareAmount(1280, 0)).toEqual({ diff: 1280, ratio: null });
+  });
+
+  it("今月が 0 なら −100%", () => {
+    expect(compareAmount(0, 180000)).toEqual({ diff: -180000, ratio: -1 });
+  });
+
+  it("両方 0 なら差も 0、割合は null", () => {
+    expect(compareAmount(0, 0)).toEqual({ diff: 0, ratio: null });
+  });
+});
+
+describe("formatDiff", () => {
+  it("符号を付ける", () => {
+    expect(formatDiff(12400)).toBe("+¥12,400");
+    expect(formatDiff(-8400)).toBe("−¥8,400");
+  });
+
+  it("0 は「変わらず」", () => {
+    expect(formatDiff(0)).toBe("変わらず");
+  });
+
+  it("マイナスは全角（半角ハイフンと混ぜない）", () => {
+    expect(formatDiff(-100)).toContain("−");
+    expect(formatDiff(-100)).not.toContain("-");
+  });
+});
+
+describe("formatDiffRatio", () => {
+  it("整数の % にする", () => {
+    expect(formatDiffRatio(0.07)).toBe("+7%");
+    expect(formatDiffRatio(-0.123)).toBe("−12%");
+  });
+
+  it("四捨五入する", () => {
+    expect(formatDiffRatio(0.126)).toBe("+13%");
+    expect(formatDiffRatio(0.124)).toBe("+12%");
+  });
+
+  it("0 は符号なし", () => {
+    expect(formatDiffRatio(0)).toBe("0%");
+  });
+
+  it("1 倍を超えても出せる", () => {
+    expect(formatDiffRatio(2.5)).toBe("+250%");
   });
 });

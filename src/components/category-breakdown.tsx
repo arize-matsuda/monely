@@ -1,4 +1,4 @@
-import { ChartPie } from "lucide-react";
+import { ChartPie, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,7 +11,7 @@ import {
   type CategoryShare,
 } from "@/lib/category-breakdown";
 import type { TransactionRow } from "@/lib/data/transactions";
-import { formatYen } from "@/lib/money";
+import { compareAmount, formatDiff, formatYen } from "@/lib/money";
 
 /**
  * カテゴリ別の内訳（FR-L8 / ADR-0009）。
@@ -32,10 +32,13 @@ const CHART_COLORS = [
 
 export function CategoryBreakdown({
   rows,
+  previousRows,
 }: {
   rows: readonly TransactionRow[];
+  /** 先月の行。渡すと各カテゴリに先月比が付く（FR-L9） */
+  previousRows?: readonly TransactionRow[];
 }) {
-  const shares = breakdownByCategory(rows);
+  const shares = breakdownByCategory(rows, previousRows);
   if (shares.length === 0) return null;
 
   return (
@@ -66,13 +69,53 @@ export function CategoryBreakdown({
   );
 }
 
+/**
+ * カテゴリごとの先月比。**矢印と金額だけで、色は付けない。**
+ *
+ * 支出が増えたことを赤で出すと、月初（まだ記録が少ない月）が
+ * 常に「改善」に見えてしまう。判断は利用者に委ねる。
+ */
+function PreviousMonth({
+  current,
+  previous,
+}: {
+  current: number;
+  previous: number;
+}) {
+  const { diff } = compareAmount(current, previous);
+
+  // 先月に使っていなかったカテゴリは「新規」と出す（+100% より分かりやすい）
+  if (previous === 0) {
+    return (
+      <span className="shrink-0 text-xs text-muted-foreground">新しく追加</span>
+    );
+  }
+
+  const Icon = diff > 0 ? TrendingUp : diff < 0 ? TrendingDown : Minus;
+
+  return (
+    <span className="flex shrink-0 items-center gap-0.5 text-xs text-muted-foreground tabular-nums">
+      <Icon className="size-3" aria-hidden />
+      {diff === 0 ? "先月と同じ" : formatDiff(diff)}
+    </span>
+  );
+}
+
 function Share({ share, color }: { share: CategoryShare; color: string }) {
   const percent = Math.round(share.ratio * 100);
 
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-3 text-sm">
-        <dt className="min-w-0 truncate">{share.name}</dt>
+        <dt className="flex min-w-0 items-baseline gap-2">
+          <span className="truncate">{share.name}</span>
+          {share.previousTotal === undefined ? null : (
+            <PreviousMonth
+              current={share.total}
+              previous={share.previousTotal}
+            />
+          )}
+        </dt>
         <dd className="flex shrink-0 items-baseline gap-2 tabular-nums">
           <span className="font-medium">{formatYen(share.total)}</span>
           <span className="w-9 text-right text-xs text-muted-foreground">

@@ -82,3 +82,50 @@ export function sumExpense(
     0,
   );
 }
+
+/**
+ * 先月との比較（FR-L9）。
+ *
+ * **割合は「先月が 0 のとき」に出さない。** 0 からの増加は何倍でも
+ * 無限大で、`+Infinity%` や `+100%` と出しても意味が無い。
+ * その場合は `ratio` を null にして、呼び出し側が金額だけ出す。
+ */
+export type Comparison = {
+  /** 今月 − 先月。支出なら正が「増えた」 */
+  diff: number;
+  /** 増減の割合（0.07 = 7%）。先月が 0 なら null */
+  ratio: number | null;
+};
+
+export function compareAmount(current: number, previous: number): Comparison {
+  return {
+    diff: current - previous,
+    ratio: previous === 0 ? null : (current - previous) / previous,
+  };
+}
+
+/**
+ * 増減の表示。符号を必ず付ける。
+ * `12400` → `"+¥12,400"` / `-8400` → `"−¥8,400"`（全角マイナス）
+ *
+ * `formatBalance` と同じ形だが、**0 のときに「±¥0」ではなく
+ * 「変わらず」と出したい**ので呼び分ける。
+ */
+export function formatDiff(diff: number): string {
+  if (diff === 0) return "変わらず";
+  const sign = diff > 0 ? "+" : "−";
+  return `${sign}${formatYen(Math.abs(diff))}`;
+}
+
+/**
+ * 増減の割合の表示。`0.07` → `"+7%"` / `-0.123` → `"−12%"`
+ *
+ * **小数は出さない。** 家計の増減で 0.1% の差は意味を持たない。
+ * 四捨五入して 0% になる場合も「+0%」と出す（金額は別に出ているので
+ * 「わずかに増えた」ことは伝わる）。
+ */
+export function formatDiffRatio(ratio: number): string {
+  const percent = Math.round(Math.abs(ratio) * 100);
+  const sign = ratio > 0 ? "+" : ratio < 0 ? "−" : "";
+  return `${sign}${percent}%`;
+}

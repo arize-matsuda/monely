@@ -109,3 +109,63 @@ describe("breakdownByCategory", () => {
     expect(result.map((r) => r.total)).toEqual([200, 100]);
   });
 });
+
+describe("breakdownByCategory（先月との比較。FR-L9）", () => {
+  it("先月の同じカテゴリの合計を付ける", () => {
+    const result = breakdownByCategory(
+      [row("expense", 1500, "食費", "c1")],
+      [row("expense", 1000, "食費", "c1")],
+    );
+    expect(result[0]).toMatchObject({ total: 1500, previousTotal: 1000 });
+  });
+
+  // 「使っていなかった」と「比較していない」を区別する
+  it("先月に無かったカテゴリは 0 にする（undefined にしない）", () => {
+    const result = breakdownByCategory(
+      [row("expense", 1500, "ペット", "c9")],
+      [row("expense", 1000, "食費", "c1")],
+    );
+    expect(result[0]).toMatchObject({ name: "ペット", previousTotal: 0 });
+  });
+
+  it("先月を渡さなければ previousTotal を付けない", () => {
+    const result = breakdownByCategory([row("expense", 1500, "食費", "c1")]);
+    expect(result[0]).not.toHaveProperty("previousTotal");
+  });
+
+  // 今月使わなかったカテゴリは行に出ない（今月の内訳なので）
+  it("今月に無いカテゴリは先月にあっても出さない", () => {
+    const result = breakdownByCategory(
+      [row("expense", 1500, "食費", "c1")],
+      [row("expense", 1000, "食費", "c1"), row("expense", 9000, "住居", "c2")],
+    );
+    expect(result.map((r) => r.name)).toEqual(["食費"]);
+  });
+
+  it("先月が空配列でも 0 として比較できる", () => {
+    const result = breakdownByCategory(
+      [row("expense", 1500, "食費", "c1")],
+      [],
+    );
+    expect(result[0]).toMatchObject({ previousTotal: 0 });
+  });
+
+  it("未分類も比較できる", () => {
+    const result = breakdownByCategory(
+      [row("expense", 300, null, null)],
+      [row("expense", 200, null, null)],
+    );
+    expect(result[0]).toMatchObject({
+      name: UNCATEGORIZED_LABEL,
+      previousTotal: 200,
+    });
+  });
+
+  it("並び順は今月の金額で決まる（先月は影響しない）", () => {
+    const result = breakdownByCategory(
+      [row("expense", 100, "食費", "c1"), row("expense", 900, "住居", "c2")],
+      [row("expense", 99999, "食費", "c1"), row("expense", 1, "住居", "c2")],
+    );
+    expect(result.map((r) => r.name)).toEqual(["住居", "食費"]);
+  });
+});

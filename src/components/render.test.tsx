@@ -70,6 +70,37 @@ describe("ホーム画面の部品", () => {
     expect(html).toContain("+¥320,000");
   });
 
+  it("MonthSummary が先月比を出す（FR-L9）", () => {
+    const html = renderToStaticMarkup(
+      <MonthSummary
+        summary={{ expense: 190000, income: 320000, balance: 130000 }}
+        previous={{ expense: 180000, income: 320000, balance: 140000 }}
+      />,
+    );
+    expect(html).toContain("先月比");
+    expect(html).toContain("+¥10,000");
+    expect(html).toContain("+6%");
+    // 収入は変わっていないので「変わらず」
+    expect(html).toContain("変わらず");
+  });
+
+  it("MonthSummary は先月に記録が無ければ比較を出さない", () => {
+    const html = renderToStaticMarkup(
+      <MonthSummary
+        summary={{ expense: 1280, income: 0, balance: -1280 }}
+        previous={{ expense: 0, income: 0, balance: 0 }}
+      />,
+    );
+    expect(html).not.toContain("先月比");
+  });
+
+  it("MonthSummary は previous を渡さなければ比較を出さない", () => {
+    const html = renderToStaticMarkup(
+      <MonthSummary summary={{ expense: 1280, income: 0, balance: -1280 }} />,
+    );
+    expect(html).not.toContain("先月比");
+  });
+
   it("MonthSummary はマイナスの差額を deficit の色で出す", () => {
     const html = renderToStaticMarkup(
       <MonthSummary
@@ -157,6 +188,46 @@ describe("PC 向けの部品（ADR-0009）", () => {
     expect(html).toContain("25%");
     // 棒の色はトークン経由
     expect(html).toContain("bg-chart-1");
+  });
+
+  it("CategoryBreakdown がカテゴリごとの先月比を出す（FR-L9）", () => {
+    const html = renderToStaticMarkup(
+      <CategoryBreakdown
+        rows={[
+          row({ amount: 7500, categoryId: "c1", category: { name: "食費" } }),
+        ]}
+        previousRows={[
+          row({ amount: 5000, categoryId: "c1", category: { name: "食費" } }),
+        ]}
+      />,
+    );
+    expect(html).toContain("+¥2,500");
+  });
+
+  it("CategoryBreakdown は先月に無かったカテゴリを「新しく追加」と出す", () => {
+    const html = renderToStaticMarkup(
+      <CategoryBreakdown
+        rows={[
+          row({ amount: 3000, categoryId: "c9", category: { name: "ペット" } }),
+        ]}
+        previousRows={[
+          row({ amount: 5000, categoryId: "c1", category: { name: "食費" } }),
+        ]}
+      />,
+    );
+    expect(html).toContain("新しく追加");
+  });
+
+  it("CategoryBreakdown は previousRows を渡さなければ先月比を出さない", () => {
+    const html = renderToStaticMarkup(
+      <CategoryBreakdown
+        rows={[
+          row({ amount: 7500, categoryId: "c1", category: { name: "食費" } }),
+        ]}
+      />,
+    );
+    expect(html).not.toContain("先月");
+    expect(html).not.toContain("新しく追加");
   });
 
   it("CategoryBreakdown は支出が無ければ何も描かない", () => {
