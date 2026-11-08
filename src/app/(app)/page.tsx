@@ -2,6 +2,14 @@ import Link from "next/link";
 import { requireMember } from "@/lib/auth";
 import { getMyHousehold } from "@/lib/data/household";
 
+// セッションを読むため、サーバーでブロックして描画する。
+//
+// **レイアウトの instant = false だけでは足りない。** Page セグメントは
+// validationLevel: 'warning'（既定）で暗黙に個別検証されるため、
+// 認証後の各ページにも宣言が必要。
+// → docs/05-decisions/ADR-0004-instant-false-for-authed-segments.md
+export const instant = false;
+
 /**
  * 仮のホーム画面（M2）。M3 で月次一覧に差し替える。
  */

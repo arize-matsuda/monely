@@ -260,6 +260,30 @@ Supabase は DB の上に PostgREST（`/rest/v1/...`）を自動で立てる。�
 
 `getMe()` の先頭に `await connection()` を置いてリクエスト時評価を明示し、解消した（Next.js の推奨どおり）。ビルドは元から通っていたが、dev のログが埋まるので直した。
 
+### instant 検証で分かったこと（2026-11-08）
+
+`/` から `/settings` へ遷移したときに警告が出た。
+
+```
+Next.js encountered uncached data during a navigation.
+  src/lib/auth.ts (20:19) @ getMe
+```
+
+**`(app)/layout.tsx` に `instant = false` を置くだけでは足りなかった。** `validationLevel: 'warning'`（既定）は Page セグメントを暗黙に個別検証する。レイアウトの `false` が外すのは「そのレイアウト自身」と静的シェル検証だけ。
+
+対処: 認証後の**各ページ**にも `export const instant = false` を追加した。
+
+| ファイル | |
+| --- | --- |
+| `(app)/layout.tsx` | 既にあった |
+| `(app)/page.tsx` | **追加** |
+| `(app)/settings/page.tsx` | **追加** |
+| `setup/page.tsx` | 既にあった |
+
+`next.config.ts` の `validationLevel: 'manual-warning'` にすれば 1 行で済むが、**公開ページの検証も止まる**。その検証が `/login` の `searchParams` の問題を見つけたので、公開ページの検証は残した。
+
+**M3 で作る `/new` と `/transactions/[id]` にも必要。** AGENTS.md に書いた。
+
 ### テーマ切り替えで分かったこと
 
 | 事項 | 内容 |

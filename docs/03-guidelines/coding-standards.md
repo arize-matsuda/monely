@@ -144,7 +144,7 @@ function required(name: string): string {
 | 事項 | 内容 |
 | --- | --- |
 | Middleware → `proxy.ts` | `src/proxy.ts`。トークン更新のみ。認可判断を置かない |
-| `cacheComponents: true` | `cookies()` を読む箇所に制約。認証後のレイアウトに `export const instant = false` |
+| `cacheComponents: true` | `cookies()` を読む箇所に制約。**認証後のレイアウトと各ページに `export const instant = false`**（Page は暗黙に個別検証される） |
 | 更新後の反映 | `refresh()` / `revalidatePath()` / `updateTag()` |
 | キャッシュキー | **平文で保存される。** 個人情報を入れない |
 

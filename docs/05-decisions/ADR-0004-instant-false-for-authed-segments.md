@@ -42,13 +42,35 @@ Monely は Supabase Auth のセッションを Cookie で持つ。**ログイン
 
 ## 決定
 
-**案 C を採用する。** `src/app/(app)/layout.tsx` に以下を置く。
+**案 C を採用する。** 認証後のセグメントに以下を置く。
 
 ```tsx
 export const instant = false;
 ```
 
-これにより、認証後のセグメント配下は instant navigation の検証と静的シェルの検証の対象から外れ、サーバーでブロックして描画する素直な構成になる。
+### 置く場所（レイアウトだけでは足りない）
+
+**2026-11-08 追記（実測）** — `(app)/layout.tsx` にだけ置いた状態で、`/` から `/settings` へ遷移すると次の警告が出た。
+
+```
+Next.js encountered uncached data during a navigation.
+  src/lib/auth.ts (20:19) @ getMe
+```
+
+原因は `validationLevel: 'warning'`（既定）が **Page セグメントを暗黙に個別検証する**こと。レイアウトの `false` が外すのは「そのレイアウト自身」と静的シェル検証で、配下の Page は検証され続ける。
+
+**レイアウトと、認証後の各ページの両方に宣言する。**
+
+| ファイル | 役割 |
+| --- | --- |
+| `src/app/(app)/layout.tsx` | 静的シェル検証を subtree ごと外す |
+| `src/app/(app)/page.tsx` | Page の暗黙検証を外す |
+| `src/app/(app)/settings/page.tsx` | 同上 |
+| `src/app/setup/page.tsx` | 同上 |
+
+**認証後のページを新しく作ったら、必ず `export const instant = false` を書く。** M3 で作る `/new` と `/transactions/[id]` も対象。
+
+> `next.config.ts` の `experimental.instantInsights.validationLevel: 'manual-warning'` にすれば 1 行で済むが、**公開ページ（`/login` など）の検証も止まる**。実際にその検証が `/login` の `searchParams` の問題を見つけたので、公開ページの検証は残す。
 
 **`cacheComponents` は無効にしない。** スキャフォールドの構成を維持する。
 
@@ -92,7 +114,8 @@ v1 の目的は「記録が続くかを確かめる」ことで、利用者は�
 
 | 対象 | 宣言 | 理由 |
 | --- | --- | --- |
-| `src/app/(app)/layout.tsx` | `export const instant = false` | 配下の `/`、`/new`、`/transactions/[id]`、`/settings` をまとめて対象にする |
+| `src/app/(app)/layout.tsx` | `export const instant = false` | 静的シェル検証を subtree ごと外す |
+| `src/app/(app)/**/page.tsx` | `export const instant = false` | **Page は暗黙に個別検証されるため個々に必要**（上記） |
 | `src/app/login/page.tsx` | 宣言しない | セッションを読まない（送信結果の表示のみ） |
 | `src/app/setup/page.tsx` | 必要なら宣言する | セッションを読むため。M2 で実装時に判断 |
 | `src/app/layout.tsx`（ルート） | **宣言しない** | ルートに置くとアプリ全体の静的シェル検証が外れる。同梱ドキュメントが「できるだけ低い位置に置く」と指示している |

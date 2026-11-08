@@ -270,7 +270,8 @@ Supabase Auth のときはトークン更新のために `src/proxy.ts` を置�
 `next.config.ts` で有効化済み。従来の App Router と挙動が違う。
 
 - `cookies()` を読むコンポーネントは `<Suspense>` の内側に置くか、そのセグメントで `export const instant = false` を宣言する必要がある。
-- **方針: `src/app/(app)/layout.tsx` に `export const instant = false` を置く。** Monely はログイン後の全画面が個人データで、静的に先出しできる部分がほぼない。これで instant navigation の検証と静的シェルの検証が外れ、サーバーでブロックして描画する素直な構成になる。
+- **方針: 認証後のレイアウトと各ページに `export const instant = false` を置く。** Monely はログイン後の全画面が個人データで、静的に先出しできる部分がほぼない。
+- **レイアウトだけでは足りない。** Page セグメントは既定で暗黙に個別検証されるため、`(app)/**/page.tsx` にも宣言が必要（実測）。
 - `instant = false` はドキュメントで示された正式な逃げ道であり、警告の抑制ハックではない。
 - 判断の経緯、宣言する範囲、見直す条件 → [ADR-0004 認証後のセグメントを `instant = false` にする](../05-decisions/ADR-0004-instant-false-for-authed-segments.md)
 - 素の `use cache` の中では `cookies()` / `headers()` を読めない（例外になる）。読む必要があれば `use cache: private`。

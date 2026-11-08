@@ -58,7 +58,7 @@ RLS は**使わない**。Supabase の「RLS が無効です」警告は意図�
 **学習データと差がある。** 一次情報は `node_modules/next/dist/docs/01-app/`。実装前に該当するガイドを読む。
 
 - **Middleware は `proxy.ts` に改名**。ただし**このプロジェクトには無い**（better-auth に移行して不要になった）。作る場合は matcher を忘れない。
-- **`cacheComponents: true` が有効。** `cookies()` を読む箇所に制約がある。認証後のセグメントは `export const instant = false`（`docs/05-decisions/ADR-0004-instant-false-for-authed-segments.md`）。
+- **`cacheComponents: true` が有効。** `cookies()` を読む箇所に制約がある。**認証後のページを作ったら `export const instant = false` を必ず書く**（レイアウトに書くだけでは足りない。Page は暗黙に個別検証される）。`docs/05-decisions/ADR-0004-instant-false-for-authed-segments.md`
 - キャッシュキーとタグは**平文で保存される**。個人情報を入れない。
 - **認証は better-auth**（`src/lib/auth/server.ts`）。Supabase Auth と `@supabase/*` は使わない（削除済み）。
 - **メールは自前で送る**（`src/lib/email.ts`）。`RESEND_API_KEY` 未設定なら**コンソールにリンクを出す**（開発時はこれで完結する）。
