@@ -467,7 +467,11 @@ Next.js encountered the unstable value new Date() while prerendering.
 > （`renameHousehold` / `renameMe`）と UI（`InlineRename`）だけ。
 > 画面に残るので `redirect` せず `refresh()` で再描画する。
 - [ ] M4-7 カテゴリ管理（追加・改名・非表示）
-- [ ] M4-8 カテゴリの並びを直近 30 日の使用頻度順に
+- [x] M4-8 カテゴリの並びを直近 30 日の使用頻度順に（2026-11-08）
+  - `listCategories(kind, usageSince)`。`groupBy` で使用回数を数え、回数の多い順 → `sortOrder` → 名前
+  - **集計期間の下限は必須引数**（`daysAgo(await requestNow(), 30)`）。既定引数で時計を読まない（§8.0）
+  - `month.ts` に `daysAgo` を追加（テスト 4 件）
+  - 認可テストを 4 件追加。**他世帯の使用回数で並びが変わらないこと**を含む
 - [ ] M4-9 日付の「今日 / 昨日」ショートカット
 - [ ] M4-10 タップ領域・コントラスト・フォーカス表示の調整
   - **一部は M3-23 で済んだ**（44px、`pnpm check:contrast`、`focus-visible` のリング）。残りは実機での確認

@@ -52,14 +52,53 @@ export async function getTransaction(id: string) {
   });
 }
 
-/** 新規登録の選択肢（FR-C1, FR-C6）。非表示のカテゴリは出さない */
-export async function listCategories(kind: Kind) {
+/** カテゴリの並び替えに使う集計期間（UI/UX設計 §5.3） */
+export const USAGE_WINDOW_DAYS = 30;
+
+/**
+ * 新規登録の選択肢（FR-C1, FR-C6, FR-C7）。非表示のカテゴリは出さない。
+ *
+ * **並びは「直近 30 日でその世帯が使った回数の多い順」**、同数なら
+ * `sortOrder` → 名前（UI/UX設計 §5.3）。使うカテゴリは偏るので、
+ * 固定順より 1 タップで届く確率が上がる。
+ *
+ * @param usageSince 集計期間の下限。`daysAgo(await requestNow(), USAGE_WINDOW_DAYS)`
+ *   を渡す。**既定値を持たせない**（時計の読み忘れを型で防ぐ。coding-standards §8.0）
+ */
+export async function listCategories(kind: Kind, usageSince: Date) {
   const me = await requireMember();
-  return prisma.category.findMany({
-    where: { householdId: me.householdId, kind, archived: false },
-    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, kind: true, sortOrder: true },
-  });
+
+  const [categories, usage] = await Promise.all([
+    prisma.category.findMany({
+      where: { householdId: me.householdId, kind, archived: false },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, kind: true, sortOrder: true },
+    }),
+    prisma.transaction.groupBy({
+      by: ["categoryId"],
+      // householdId の条件を落とすと他世帯の使用回数で並びが変わる
+      where: {
+        householdId: me.householdId,
+        kind,
+        occurredOn: { gte: usageSince },
+        categoryId: { not: null },
+      },
+      _count: { categoryId: true },
+    }),
+  ]);
+
+  const countOf = new Map(
+    usage.map((row) => [row.categoryId, row._count.categoryId]),
+  );
+
+  // findMany の orderBy で sortOrder → name の順になっているので、
+  // 回数だけで安定ソートすれば同数の並びはそのまま保たれる
+  return categories
+    .map((category) => ({
+      ...category,
+      recentCount: countOf.get(category.id) ?? 0,
+    }))
+    .sort((x, y) => y.recentCount - x.recentCount);
 }
 
 export type TransactionInput = {

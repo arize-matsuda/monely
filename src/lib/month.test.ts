@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   currentMonth,
+  daysAgo,
   formatDateLabel,
   formatDateSlashed,
   formatMonth,
@@ -233,5 +234,32 @@ describe("monthOf", () => {
     expect(monthOf(dbDate("2026-11-07"))).toBe("2026-11");
     expect(monthOf(dbDate("2026-10-31"))).toBe("2026-10");
     expect(monthOf(dbDate("2026-11-01"))).toBe("2026-11");
+  });
+});
+
+describe("daysAgo", () => {
+  it("UTC 0 時の日付を返す", () => {
+    const now = new Date("2026-11-08T15:30:00+09:00");
+    // JST の 15:30 でも、返るのは UTC 0 時（@db.Date と比べるため）
+    expect(daysAgo(now, 30).toISOString()).toBe("2026-10-09T00:00:00.000Z");
+  });
+
+  it("日数をさかのぼる", () => {
+    const now = new Date("2026-11-08T12:00:00+09:00");
+    expect(toDateKey(daysAgo(now, 0))).toBe("2026-11-08");
+    expect(toDateKey(daysAgo(now, 1))).toBe("2026-11-07");
+    expect(toDateKey(daysAgo(now, 30))).toBe("2026-10-09");
+  });
+
+  it("月と年をまたぐ", () => {
+    expect(toDateKey(daysAgo(new Date("2026-01-05T12:00:00+09:00"), 10))).toBe(
+      "2025-12-26",
+    );
+  });
+
+  it("うるう年をまたぐ", () => {
+    expect(toDateKey(daysAgo(new Date("2028-03-01T12:00:00+09:00"), 1))).toBe(
+      "2028-02-29",
+    );
   });
 });

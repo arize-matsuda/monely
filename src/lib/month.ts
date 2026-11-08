@@ -122,6 +122,25 @@ export function todayKey(now: Date): string {
   return localDateKey(now);
 }
 
+/**
+ * `now` から `days` 日前の、**UTC 0 時**の `Date`。
+ *
+ * `@db.Date` の列（`occurredOn`）と比べるので UTC で揃える。
+ * 「今日」は `localDateKey`（JST）で判定するが、ここは期間の下限なので
+ * 1 日のずれが結果を大きく変えない。揃えることを優先する。
+ *
+ * カテゴリの使用頻度の集計期間に使う（UI/UX設計 §5.3）。
+ */
+export function daysAgo(now: Date, days: number): Date {
+  const date = parseDateKey(localDateKey(now));
+  if (!date) {
+    // localDateKey は必ず YYYY-MM-DD を返すので、ここには来ない
+    throw new Error(`日付として読めない: ${now.toISOString()}`);
+  }
+  date.setUTCDate(date.getUTCDate() - days);
+  return date;
+}
+
 /** `Date` → `"2026/11/07"`（編集画面の表示） */
 export function formatDateSlashed(date: Date): string {
   return `${date.getUTCFullYear()}/${pad(date.getUTCMonth() + 1)}/${pad(date.getUTCDate())}`;

@@ -4,8 +4,8 @@ import { FormPageHeader } from "@/components/ui/form-page-header";
 import { requireMember } from "@/lib/auth";
 import { requestNow } from "@/lib/clock";
 import { listMembers } from "@/lib/data/household";
-import { listCategories } from "@/lib/data/transactions";
-import { todayKey } from "@/lib/month";
+import { listCategories, USAGE_WINDOW_DAYS } from "@/lib/data/transactions";
+import { daysAgo, todayKey } from "@/lib/month";
 
 export const metadata = { title: "記録する | Monely" };
 
@@ -21,9 +21,11 @@ export const instant = false;
 export default async function NewTransactionPage() {
   const me = await requireMember();
   const now = await requestNow();
+  // カテゴリは直近 30 日の使用頻度順に出す（UI/UX設計 §5.3）
+  const usageSince = daysAgo(now, USAGE_WINDOW_DAYS);
   const [expense, income, members] = await Promise.all([
-    listCategories("expense"),
-    listCategories("income"),
+    listCategories("expense", usageSince),
+    listCategories("income", usageSince),
     listMembers(),
   ]);
 

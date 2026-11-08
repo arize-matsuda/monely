@@ -39,6 +39,12 @@ function as(member: Member) {
 
 const MONTH = "2026-11";
 
+/**
+ * カテゴリの使用頻度の集計期間の下限。
+ * seed の記録（2026-11-07）を含む範囲にしてある。
+ */
+const USAGE_SINCE = new Date("2026-10-09T00:00:00.000Z");
+
 describe("記録の DAL", () => {
   let a: SeededHousehold;
   let b: SeededHousehold;
@@ -149,20 +155,20 @@ describe("記録の DAL", () => {
   describe("listCategories", () => {
     it("自分の世帯の、種別が一致するカテゴリを返す", async () => {
       as(a.member);
-      const rows = await listCategories("expense");
+      const rows = await listCategories("expense", USAGE_SINCE);
       expect(rows).toHaveLength(1);
       expect(rows[0]?.name).toBe("食費");
     });
 
     it("★ 他世帯のカテゴリを返さない", async () => {
       as(b.member);
-      const rows = await listCategories("expense");
+      const rows = await listCategories("expense", USAGE_SINCE);
       expect(rows.map((r) => r.id)).not.toContain(a.categoryId);
     });
 
     it("種別が違うカテゴリを返さない", async () => {
       as(a.member);
-      expect(await listCategories("income")).toHaveLength(0);
+      expect(await listCategories("income", USAGE_SINCE)).toHaveLength(0);
     });
 
     it("非表示のカテゴリを返さない（FR-C6）", async () => {
@@ -171,7 +177,103 @@ describe("記録の DAL", () => {
         data: { archived: true },
       });
       as(a.member);
-      expect(await listCategories("expense")).toHaveLength(0);
+      expect(await listCategories("expense", USAGE_SINCE)).toHaveLength(0);
+    });
+
+    describe("並び順（FR-C7 / UI/UX設計 §5.3）", () => {
+      /** a の世帯にカテゴリを足す */
+      async function addCategory(name: string, sortOrder: number) {
+        const category = await prisma.category.create({
+          data: {
+            householdId: a.householdId,
+            kind: "expense",
+            name,
+            sortOrder,
+          },
+        });
+        return category.id;
+      }
+
+      /** a の世帯に記録を足す */
+      async function addTransaction(categoryId: string, occurredOn: string) {
+        await prisma.transaction.create({
+          data: {
+            householdId: a.householdId,
+            kind: "expense",
+            amount: 100,
+            occurredOn: new Date(`${occurredOn}T00:00:00.000Z`),
+            categoryId,
+            createdById: a.member.profileId,
+          },
+        });
+      }
+
+      it("直近で使った回数の多い順に並ぶ", async () => {
+        // sortOrder は 食費(10) < 交通(20) < 日用品(30)
+        const transport = await addCategory("交通", 20);
+        const daily = await addCategory("日用品", 30);
+
+        // 日用品を 3 回、交通を 2 回。食費は seed の 1 回
+        for (let i = 0; i < 3; i += 1)
+          await addTransaction(daily, "2026-11-01");
+        for (let i = 0; i < 2; i += 1)
+          await addTransaction(transport, "2026-11-02");
+
+        as(a.member);
+        const rows = await listCategories("expense", USAGE_SINCE);
+        expect(rows.map((r) => r.name)).toEqual(["日用品", "交通", "食費"]);
+        expect(rows.map((r) => r.recentCount)).toEqual([3, 2, 1]);
+      });
+
+      it("回数が同じなら sortOrder の順に並ぶ", async () => {
+        const transport = await addCategory("交通", 20);
+        await addCategory("その他", 999);
+
+        // 食費（seed で 1 回）と交通を同数にする
+        await addTransaction(transport, "2026-11-02");
+
+        as(a.member);
+        const rows = await listCategories("expense", USAGE_SINCE);
+        expect(rows.map((r) => r.name)).toEqual(["食費", "交通", "その他"]);
+      });
+
+      it("集計期間より前の記録は数えない", async () => {
+        const transport = await addCategory("交通", 20);
+        // 期間外（2026-10-09 より前）に 5 回
+        for (let i = 0; i < 5; i += 1)
+          await addTransaction(transport, "2026-09-01");
+
+        as(a.member);
+        const rows = await listCategories("expense", USAGE_SINCE);
+        // 期間内は食費の 1 回だけなので、食費が先
+        expect(rows.map((r) => r.name)).toEqual(["食費", "交通"]);
+        expect(rows.map((r) => r.recentCount)).toEqual([1, 0]);
+      });
+
+      it("★ 他世帯の使用回数で並びが変わらない", async () => {
+        await addCategory("交通", 20);
+
+        // b の世帯で b のカテゴリを 5 回使う
+        for (let i = 0; i < 5; i += 1) {
+          await prisma.transaction.create({
+            data: {
+              householdId: b.householdId,
+              kind: "expense",
+              amount: 100,
+              occurredOn: new Date("2026-11-03T00:00:00.000Z"),
+              categoryId: b.categoryId,
+              createdById: b.member.profileId,
+            },
+          });
+        }
+
+        as(a.member);
+        const rows = await listCategories("expense", USAGE_SINCE);
+        // a から見える並びは a の使用回数だけで決まる
+        expect(rows.map((r) => r.name)).toEqual(["食費", "交通"]);
+        expect(rows.map((r) => r.recentCount)).toEqual([1, 0]);
+        expect(rows.map((r) => r.id)).not.toContain(b.categoryId);
+      });
     });
   });
 

@@ -13,9 +13,14 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { FormPageHeader } from "@/components/ui/form-page-header";
+import { requestNow } from "@/lib/clock";
 import { listMembers } from "@/lib/data/household";
-import { getTransaction, listCategories } from "@/lib/data/transactions";
-import { toDateKey } from "@/lib/month";
+import {
+  getTransaction,
+  listCategories,
+  USAGE_WINDOW_DAYS,
+} from "@/lib/data/transactions";
+import { daysAgo, toDateKey } from "@/lib/month";
 
 export const metadata = { title: "記録の編集 | Monely" };
 
@@ -65,9 +70,10 @@ export default async function EditTransactionPage({
     );
   }
 
+  const usageSince = daysAgo(await requestNow(), USAGE_WINDOW_DAYS);
   const [expense, income] = await Promise.all([
-    listCategories("expense"),
-    listCategories("income"),
+    listCategories("expense", usageSince),
+    listCategories("income", usageSince),
   ]);
 
   return (
