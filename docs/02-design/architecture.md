@@ -461,10 +461,42 @@ DAL の全関数が `requireMember()` を呼ぶ設計（[ADR-0005](../05-decisio
 | 包む前 | 12 | 約 850ms |
 | 包んだ後 | 2 | 約 140ms |
 
-**リージョンのほうが効く。** Vercel の既定は米国東部（`iad1`）で、
+**リージョンのほうが効いた。** Vercel の既定は米国東部（`iad1`）で、
 そこからシンガポールの DB を叩くと 1 往復が 200ms を超える。
-**Vercel の Settings → Functions → Region を Singapore にする**
-（`preferredRegion` の export は Next 16 で非推奨）。
+**Settings → Functions → Function Region を Singapore にする**
+（`preferredRegion` の export は Next 16 で非推奨なのでコードでは指定できない。
+**設定を変えたら再デプロイが必要**）。
+
+実測（2026-11-09、`/api/auth/get-session` を日本から）:
+
+| 関数の場所 | 応答の中央値 | ホーム画面の DB 待ち（概算、5 クエリ） |
+| --- | --- | --- |
+| `iad1`（米国東部） | 190ms | 約 1,100ms |
+| **`sin1`（シンガポール）** | **101ms** | **約 25ms** |
+
+本人の体感も「めっちゃ早くなった」に変わった。
+
+#### リージョンの確認方法（間違えやすい）
+
+`x-vercel-id` は **`<CDN>::<関数>::<ID>`** の形。
+
+```
+hnd1::sin1::nf6z8-...
+ ↑     ↑
+CDN   関数 ← これを見る
+```
+
+**キャッシュから返った応答には関数の情報が入らない**（`hnd1::...` の 1 つだけ）。
+静的ページや `x-vercel-cache: HIT` の応答を見ると
+「東京で動いている」と誤読する。**実際に一度これで判断を誤り、
+リージョンを原因の候補から外しかけた。**
+
+確認には**必ず関数が動く経路**を使う。`/api/auth/get-session` は
+認証なしでも 200 を返し、毎回関数が動くので都合がよい。
+
+```bash
+curl -sI https://<本番URL>/api/auth/get-session | grep -i x-vercel-id
+```
 
 #### `TZ` が最大のリスク（NFR-D8 / NFR-O7）
 
