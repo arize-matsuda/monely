@@ -1,6 +1,7 @@
 import { CircleAlert } from "lucide-react";
 import { Suspense } from "react";
 import { AuthLink, AuthShell } from "@/components/ui/auth-shell";
+import { isMailConfigured } from "@/lib/email";
 import { LoginForm } from "./login-form";
 
 export const metadata = { title: "ログイン | Monely" };
@@ -13,6 +14,14 @@ export const metadata = { title: "ログイン | Monely" };
  * → docs/05-decisions/ADR-0004-instant-false-for-authed-segments.md
  */
 export default function LoginPage({ searchParams }: PageProps<"/login">) {
+  /*
+   * **メールを送れない環境では、メール頼みの導線を出さない。**
+   * 出すと「送りました」と表示されるのに届かず、行き止まりになる
+   * （2026-11-09 に本番で踏んだ）。
+   * 設定すれば自動で出る（ビルド時に判定するので再デプロイが要る）。
+   */
+  const mail = isMailConfigured();
+
   return (
     <AuthShell
       footer={
@@ -20,14 +29,23 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
           <p>
             はじめての方は <AuthLink href="/signup">アカウントを作る</AuthLink>
           </p>
-          <p>
-            パスワードを忘れた方は{" "}
-            <AuthLink href="/login/link">ログインリンクを受け取る</AuthLink>
-          </p>
-          <p>
-            確認メールが届かない方は{" "}
-            <AuthLink href="/login/verify">確認メールを再送する</AuthLink>
-          </p>
+          {mail ? (
+            <>
+              <p>
+                パスワードを忘れた方は{" "}
+                <AuthLink href="/login/link">ログインリンクを受け取る</AuthLink>
+              </p>
+              <p>
+                確認メールが届かない方は{" "}
+                <AuthLink href="/login/verify">確認メールを再送する</AuthLink>
+              </p>
+            </>
+          ) : (
+            <p className="text-xs leading-relaxed">
+              いまメールを送信できない設定のため、パスワードの再設定は
+              できません。パスワードは忘れないよう保管してください。
+            </p>
+          )}
         </>
       }
     >
