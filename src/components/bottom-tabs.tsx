@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { CalendarRange, Home, Plus, Settings } from "lucide-react";
+import { CalendarRange, ChartPie, Home, Plus, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -17,9 +17,15 @@ import { cn } from "@/lib/utils";
  *
  * 現在地の判定に `usePathname()` を使うため Client Component。
  */
+/**
+ * タブは 5 つ。**375px で 1 つ 75px** なので、ラベルは短くする
+ * （「記録する」→「記録」）。サイドバー（PC）は幅に余裕があるので
+ * 「記録する」のままにしてある。
+ */
 const TABS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "ホーム", icon: Home },
-  { href: "/new", label: "記録する", icon: Plus },
+  { href: "/new", label: "記録", icon: Plus },
+  { href: "/breakdown", label: "内訳", icon: ChartPie },
   { href: "/year", label: "年", icon: CalendarRange },
   { href: "/settings", label: "設定", icon: Settings },
 ];

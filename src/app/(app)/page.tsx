@@ -86,6 +86,9 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
               rows={rows}
               previousRows={previousRows}
               budgets={budgets}
+              hrefFor={(categoryId) =>
+                `/breakdown?m=${month}${categoryId === null ? "" : `&c=${categoryId}`}`
+              }
             />
             {/* 1 人の世帯では描かれない（コンポーネント側で判断） */}
             <PayerSplit rows={rows} members={members} />

@@ -82,6 +82,7 @@
 | [**ADR-0009**](./05-decisions/ADR-0009-desktop-layout-and-category-breakdown.md) | **PC を独立したレイアウトにし、カテゴリ別の内訳を v1 に入れる** | 採用 |
 | [ADR-0010](./05-decisions/ADR-0010-year-page.md) | 年のページを作り、月次の推移を v1 に入れる | 採用 |
 | [**ADR-0011**](./05-decisions/ADR-0011-tier1-and-recurring.md) | **複製・記録忘れ・支払者別・予算・定期支出を入れる**（v2 候補の前倒し） | 採用 |
+| [ADR-0012](./05-decisions/ADR-0012-breakdown-screen.md) | カテゴリ別の内訳を専用画面にし、記録まで辿れるようにする | 採用 |
 
 ---
 

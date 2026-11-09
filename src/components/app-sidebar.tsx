@@ -3,6 +3,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   CalendarRange,
+  ChartPie,
   Home,
   Plus,
   Settings,
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils";
 const ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "ホーム", icon: Home },
   { href: "/new", label: "記録する", icon: Plus },
+  { href: "/breakdown", label: "内訳", icon: ChartPie },
   { href: "/year", label: "年の一覧", icon: CalendarRange },
   { href: "/settings/categories", label: "カテゴリ", icon: Tags },
   { href: "/settings", label: "設定", icon: Settings },

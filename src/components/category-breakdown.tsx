@@ -1,4 +1,5 @@
 import { ChartPie, Minus, TrendingDown, TrendingUp } from "lucide-react";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -14,6 +15,7 @@ import {
 import type { BudgetMap } from "@/lib/data/budgets";
 import type { TransactionRow } from "@/lib/data/transactions";
 import { compareAmount, formatDiff, formatYen } from "@/lib/money";
+import { cn } from "@/lib/utils";
 
 /**
  * カテゴリ別の内訳（FR-L8 / ADR-0009）。
@@ -36,12 +38,19 @@ export function CategoryBreakdown({
   rows,
   previousRows,
   budgets,
+  hrefFor,
 }: {
   rows: readonly TransactionRow[];
   /** 先月の行。渡すと各カテゴリに先月比が付く（FR-L9） */
   previousRows?: readonly TransactionRow[];
   /** 予算。渡すと消化率が付く（FR-B2） */
   budgets?: BudgetMap;
+  /**
+   * 渡すと各行がリンクになる（FR-L13）。
+   * 「内訳を見る → 何に使ったか確かめる」を繋ぐための導線。
+   * 期間が月に限定されない画面（年のページ）では渡さない。
+   */
+  hrefFor?: (categoryId: string | null) => string;
 }) {
   const shares = breakdownByCategory(rows, previousRows);
   if (shares.length === 0) return null;
@@ -71,6 +80,7 @@ export function CategoryBreakdown({
                   ? null
                   : budgetUsage(budgets, share.categoryId, share.total)
               }
+              href={hrefFor?.(share.categoryId)}
             />
           ))}
         </dl>
@@ -115,16 +125,33 @@ function Share({
   share,
   color,
   usage,
+  href,
 }: {
   share: CategoryShare;
   color: string;
   usage: BudgetUsage | null;
+  href?: string;
 }) {
   const percent = Math.round(share.ratio * 100);
 
+  /*
+   * `href` があれば行ごとリンクにする（FR-L13）。
+   * `dl` の中なので `dt` / `dd` を崩さないよう、**外側を Link で包まない。**
+   * 代わりに行全体を覆う透明なリンクを重ねる（`absolute inset-0`）。
+   * こうすると棒や割合もタップ対象になり、読み上げの構造も保たれる。
+   */
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-3 text-sm">
+    <div
+      className={cn("relative flex flex-col gap-1.5", href && "group/share")}
+    >
+      {href ? (
+        <Link
+          href={href}
+          aria-label={`${share.name} の記録を見る`}
+          className="absolute -inset-x-2 -inset-y-1 rounded-lg outline-none transition-colors hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+        />
+      ) : null}
+      <div className="relative flex items-baseline justify-between gap-3 text-sm">
         <dt className="flex min-w-0 items-baseline gap-2">
           <span className="truncate">{share.name}</span>
           {share.previousTotal === undefined ? null : (
@@ -147,7 +174,10 @@ function Share({
         予算があるときは**予算に対する消化率**を描く（支出全体の割合ではなく、
         「予算をどこまで使ったか」のほうが行動に繋がる）
       */}
-      <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden>
+      <div
+        className="relative h-2 overflow-hidden rounded-full bg-muted"
+        aria-hidden
+      >
         <div
           className={`h-full rounded-full ${usage?.over ? "bg-destructive" : color}`}
           style={{
@@ -156,7 +186,7 @@ function Share({
         />
       </div>
       {usage === null ? null : (
-        <p className="text-xs text-muted-foreground tabular-nums">
+        <p className="relative text-xs text-muted-foreground tabular-nums">
           予算 {formatYen(usage.budget)} の{Math.round(usage.ratio * 100)}%
           {usage.over ? (
             <span className="ml-1 font-medium text-destructive">

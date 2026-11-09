@@ -485,3 +485,50 @@ describe("定期支出（FR-R2 / ADR-0011）", () => {
     expect(renderToStaticMarkup(<RecurringNotice candidates={[]} />)).toBe("");
   });
 });
+
+describe("内訳からの絞り込み（FR-L13 / ADR-0012）", () => {
+  it("hrefFor を渡すと各行がリンクになる", () => {
+    const html = renderToStaticMarkup(
+      <CategoryBreakdown
+        rows={[
+          row({ amount: 7500, categoryId: "c1", category: { name: "食費" } }),
+        ]}
+        hrefFor={(categoryId) => `/breakdown?m=2026-11&c=${categoryId}`}
+      />,
+    );
+    expect(html).toContain('href="/breakdown?m=2026-11&amp;c=c1"');
+    // 読み上げ用の名前が付いている
+    expect(html).toContain("食費 の記録を見る");
+  });
+
+  it("hrefFor を渡さなければリンクにしない", () => {
+    const html = renderToStaticMarkup(
+      <CategoryBreakdown
+        rows={[
+          row({ amount: 7500, categoryId: "c1", category: { name: "食費" } }),
+        ]}
+      />,
+    );
+    expect(html).not.toContain("<a");
+  });
+
+  it("MonthSwitcher は basePath を使う", () => {
+    const html = renderToStaticMarkup(
+      <MonthSwitcher
+        month="2026-11"
+        basePath="/breakdown"
+        linkToYear={false}
+      />,
+    );
+    expect(html).toContain('href="/breakdown?m=2026-10"');
+    expect(html).toContain('href="/breakdown?m=2026-12"');
+    // 年のページへのリンクは出さない
+    expect(html).not.toContain("/year/");
+  });
+
+  it("MonthSwitcher の既定はホーム（従来どおり）", () => {
+    const html = renderToStaticMarkup(<MonthSwitcher month="2026-11" />);
+    expect(html).toContain('href="/?m=2026-10"');
+    expect(html).toContain('href="/year/2026"');
+  });
+});
