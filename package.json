@@ -16,7 +16,8 @@
     "db:studio": "prisma studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:db": "./scripts/test-db.sh"
+    "test:db": "./scripts/test-db.sh",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",

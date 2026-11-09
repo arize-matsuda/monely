@@ -48,3 +48,6 @@ next-env.d.ts
 
 # 開発モードのメール出力（確認リンクの控え）
 .dev-mail.log
+
+# デモ用ダミーデータの ID（--undo で使う。環境ごとに異なる）
+.seed-demo-ids.json
