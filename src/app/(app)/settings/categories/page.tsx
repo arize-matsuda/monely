@@ -35,7 +35,7 @@ export default async function CategoriesPage() {
   const income = categories.filter((c) => c.kind === "income");
 
   return (
-    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 px-4 pt-4 pb-16 md:max-w-3xl md:px-8 md:pt-8">
+    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 px-4 pt-4 pb-4 md:max-w-3xl md:px-8 md:pt-8">
       <div className="flex items-center gap-1">
         <Button asChild variant="ghost" size="icon" className="-ml-2">
           <Link href="/settings" aria-label="設定に戻る">

@@ -11,7 +11,6 @@ import {
 import Link from "next/link";
 import { signOut } from "@/actions/auth";
 import { renameHousehold, renameMe } from "@/actions/household";
-import { BottomTabs } from "@/components/bottom-tabs";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,7 +72,7 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 px-4 pt-8 pb-28 md:max-w-3xl md:px-8 md:pb-10">
+    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-4 px-4 pt-8 pb-4 md:max-w-3xl md:px-8 md:pb-10">
       <h1 className="font-heading text-2xl font-semibold tracking-tight">
         設定
       </h1>
@@ -199,8 +198,6 @@ export default async function SettingsPage() {
           ログアウト
         </Button>
       </form>
-
-      <BottomTabs />
     </main>
   );
 }

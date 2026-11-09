@@ -1,6 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { BottomTabs } from "@/components/bottom-tabs";
 import { CategoryBreakdown } from "@/components/category-breakdown";
 import { Button } from "@/components/ui/button";
 import { YearOverview } from "@/components/year-overview";
@@ -33,7 +32,7 @@ export default async function YearPage({ params }: PageProps<"/year/[year]">) {
   const summary = summarizeYear(year, rows);
 
   return (
-    <main className="mx-auto w-full max-w-[480px] flex-1 px-4 pt-4 pb-28 md:max-w-6xl md:px-8 md:pt-8 md:pb-10">
+    <main className="mx-auto w-full max-w-[480px] flex-1 px-4 pt-4 pb-4 md:max-w-6xl md:px-8 md:pt-8 md:pb-10">
       <div className="flex items-center justify-between gap-2">
         <Button asChild variant="ghost" size="icon">
           <Link href={`/year/${year - 1}`} aria-label="前の年へ">
@@ -60,8 +59,6 @@ export default async function YearPage({ params }: PageProps<"/year/[year]">) {
           <CategoryBreakdown rows={rows} />
         </div>
       </div>
-
-      <BottomTabs />
     </main>
   );
 }

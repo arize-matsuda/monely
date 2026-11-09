@@ -1,6 +1,5 @@
 import { ArrowLeft, ChartPie } from "lucide-react";
 import Link from "next/link";
-import { BottomTabs } from "@/components/bottom-tabs";
 import { CategoryBreakdown } from "@/components/category-breakdown";
 import { MonthSwitcher } from "@/components/month-switcher";
 import { TransactionList } from "@/components/transaction-list";
@@ -73,7 +72,7 @@ export default async function BreakdownPage({
       : (shares.find((share) => share.categoryId === requested) ?? null);
 
   return (
-    <main className="mx-auto w-full max-w-[560px] flex-1 px-4 pt-4 pb-28 md:max-w-3xl md:px-8 md:pt-8 md:pb-10">
+    <main className="mx-auto w-full max-w-[560px] flex-1 px-4 pt-4 pb-4 md:max-w-3xl md:px-8 md:pt-8 md:pb-10">
       <MonthSwitcher month={month} basePath="/breakdown" linkToYear={false} />
 
       {selected === null ? (
@@ -123,8 +122,6 @@ export default async function BreakdownPage({
           today={now}
         />
       )}
-
-      <BottomTabs />
     </main>
   );
 }

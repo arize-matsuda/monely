@@ -1,4 +1,3 @@
-import { BottomTabs } from "@/components/bottom-tabs";
 import { CategoryBreakdown } from "@/components/category-breakdown";
 import { EmptyMonth } from "@/components/empty-month";
 import { MissingCategoriesNotice } from "@/components/missing-categories-notice";
@@ -64,7 +63,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
     : [];
 
   return (
-    <main className="mx-auto w-full max-w-[480px] flex-1 px-4 pt-4 pb-28 md:max-w-6xl md:px-8 md:pt-8 md:pb-10">
+    <main className="mx-auto w-full max-w-[480px] flex-1 px-4 pt-4 pb-4 md:max-w-6xl md:px-8 md:pt-8 md:pb-10">
       <MonthSwitcher month={month} />
 
       <div className="mt-4 md:mt-6 md:grid md:grid-cols-[minmax(0,1fr)_20rem] md:items-start md:gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -103,8 +102,6 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           )}
         </div>
       </div>
-
-      <BottomTabs />
     </main>
   );
 }

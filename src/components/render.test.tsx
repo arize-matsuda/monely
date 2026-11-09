@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { TransactionRow as Row } from "@/lib/data/transactions";
 import { summarizeYear } from "@/lib/year-summary";
 import { AppSidebar } from "./app-sidebar";
+import { BottomTabs } from "./bottom-tabs";
 import { CategoryBreakdown } from "./category-breakdown";
 import { EmptyMonth } from "./empty-month";
 import { MissingCategoriesNotice } from "./missing-categories-notice";
@@ -530,5 +531,34 @@ describe("内訳からの絞り込み（FR-L13 / ADR-0012）", () => {
     const html = renderToStaticMarkup(<MonthSwitcher month="2026-11" />);
     expect(html).toContain('href="/?m=2026-10"');
     expect(html).toContain('href="/year/2026"');
+  });
+});
+
+describe("ナビゲーション（2026-11-10 の遷移の指摘）", () => {
+  /*
+   * ★ BottomTabs をページ側で描くと、そのページを離れた瞬間に
+   * アンマウントされ「遷移ごとに消えて出直す」ように見える。
+   * レイアウトで描くことが前提なので、タブの内容をここで固定しておく。
+   */
+  it("★ 下部タブは 5 つで、記録と内訳と年を含む", () => {
+    const html = renderToStaticMarkup(<BottomTabs />);
+    for (const label of ["ホーム", "記録", "内訳", "年", "設定"]) {
+      expect(html).toContain(label);
+    }
+    expect(html).toContain('href="/new"');
+    expect(html).toContain('href="/breakdown"');
+    expect(html).toContain('href="/year"');
+  });
+
+  it("下部タブは PC では隠れる", () => {
+    expect(renderToStaticMarkup(<BottomTabs />)).toContain("md:hidden");
+  });
+
+  it("サイドバーはスマホでは隠れる", () => {
+    expect(
+      renderToStaticMarkup(
+        <AppSidebar householdName="わが家" displayName="たっつ" />,
+      ),
+    ).toContain("md:flex");
   });
 });
