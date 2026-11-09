@@ -439,6 +439,33 @@ better-auth はこの値をメールのリンクと `callbackURL` の検証に�
      検証済みのものにする**（未検証だと Resend が 403 を返す）
 5. 再デプロイ後、`/login/verify` から確認メールを送り直す
 
+#### 速度は DB への往復回数とリージョンで決まる（NFR-P6 / NFR-P7）
+
+**このアプリは 1 画面で何度も DB を往復する構造**になっている。
+DAL の全関数が `requireMember()` を呼ぶ設計（[ADR-0005](../05-decisions/ADR-0005-authorization-in-app-layer.md) 約束 B）なので、
+認証の往復が呼んだ数だけ増える。
+
+| | ホーム画面の `getMe()` 呼び出し |
+| --- | --- |
+| レイアウト | `requireMember()` + `getMyHousehold()` = 2 |
+| ページ | `listTransactionsByMonth` ×2 + `listMembers` + `listBudgets` = 4 |
+| **合計** | **6 回**（1 回あたり「セッション + ユーザー」と「プロフィール」で 2 往復） |
+
+**`React.cache` で包んで 1 回にした**（2026-11-09）。
+`cache` はリクエストごとに空になるので、**毎リクエストで検証する点は変わらない。**
+
+実測（日本 → `ap-southeast-1`）: **1 往復 71ms、接続の確立 300ms。**
+
+| | 認証の往復 | 概算 |
+| --- | --- | --- |
+| 包む前 | 12 | 約 850ms |
+| 包んだ後 | 2 | 約 140ms |
+
+**リージョンのほうが効く。** Vercel の既定は米国東部（`iad1`）で、
+そこからシンガポールの DB を叩くと 1 往復が 200ms を超える。
+**Vercel の Settings → Functions → Region を Singapore にする**
+（`preferredRegion` の export は Next 16 で非推奨）。
+
 #### `TZ` が最大のリスク（NFR-D8 / NFR-O7）
 
 このアプリは「今日 / 昨日」の判定をサーバーの時計で行うため、
