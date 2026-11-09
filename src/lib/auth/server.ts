@@ -51,8 +51,20 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    // 確認が済むまでセッションを作らない（ADR-0006）
-    requireEmailVerification: true,
+    /*
+     * **メール確認を必須にしない**（ADR-0013。ADR-0006 の判断を置き換えた）。
+     *
+     * 独自ドメインを用意しない方針になり、メールを任意の宛先に送れない。
+     * 必須にすると**誰も登録を完了できない**。
+     *
+     * **データの安全性は変わらない。** 認可の入口は招待コードで、
+     * 世帯に未所属のアカウントは `requireMember()` が /setup に送る。
+     * 記録は 1 件も見えない（アプリ側は `emailVerified` を見ていない）。
+     *
+     * 代償は**パスワードの再設定ができないこと**。再設定はメール送信に
+     * 依存しているため。パスワードは利用者が保管する前提にした。
+     */
+    requireEmailVerification: false,
     minPasswordLength: MIN_PASSWORD_LENGTH,
     maxPasswordLength: MAX_PASSWORD_LENGTH,
     sendResetPassword: async ({ user, url }) => {

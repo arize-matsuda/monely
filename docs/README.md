@@ -76,13 +76,14 @@
 | [ADR-0003](./05-decisions/ADR-0003-one-household-per-user.md) | 1 ユーザー = 1 世帯のデータモデル（中間テーブルを作らない） | 採用 |
 | [ADR-0004](./05-decisions/ADR-0004-instant-false-for-authed-segments.md) | 認証後のセグメントを `instant = false` にする | 採用 |
 | [**ADR-0005**](./05-decisions/ADR-0005-authorization-in-app-layer.md) | **認可をアプリ層に置き、Prisma を採用する**（ADR-0002 を置き換え） | 採用 |
-| [ADR-0006](./05-decisions/ADR-0006-email-password-auth.md) | 認証をメール + パスワードにする（マジックリンクは再設定用に残す） | 採用 |
+| [ADR-0006](./05-decisions/ADR-0006-email-password-auth.md) | 認証をメール + パスワードにする（マジックリンクは再設定用に残す） | 採用（**メール確認の必須化は ADR-0013 で置き換え**） |
 | [**ADR-0007**](./05-decisions/ADR-0007-better-auth.md) | **認証基盤を Supabase Auth から better-auth に移す** | 採用 |
 | [ADR-0008](./05-decisions/ADR-0008-shadcn-ui.md) | UI コンポーネントに shadcn/ui（Radix ベース）を採用する | 採用 |
 | [**ADR-0009**](./05-decisions/ADR-0009-desktop-layout-and-category-breakdown.md) | **PC を独立したレイアウトにし、カテゴリ別の内訳を v1 に入れる** | 採用 |
 | [ADR-0010](./05-decisions/ADR-0010-year-page.md) | 年のページを作り、月次の推移を v1 に入れる | 採用 |
 | [**ADR-0011**](./05-decisions/ADR-0011-tier1-and-recurring.md) | **複製・記録忘れ・支払者別・予算・定期支出を入れる**（v2 候補の前倒し） | 採用 |
 | [ADR-0012](./05-decisions/ADR-0012-breakdown-screen.md) | カテゴリ別の内訳を専用画面にし、記録まで辿れるようにする | 採用 |
+| [**ADR-0013**](./05-decisions/ADR-0013-no-email-verification.md) | **メール確認を必須にしない**（ADR-0006 の該当部分を置き換え） | 採用 |
 
 ---
 
