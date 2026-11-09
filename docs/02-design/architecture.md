@@ -369,7 +369,7 @@ node -e 'import("better-auth/db").then(m => console.log(m.getAuthTables(options)
 | `DIRECT_URL` | Session pooler（5432）。ビルド時の `prisma generate` とマイグレーションで使う |
 | `BETTER_AUTH_URL` | **設定しなくてよい。** Vercel が渡す `VERCEL_PROJECT_PRODUCTION_URL` から組み立てる。独自ドメインを使うときだけ明示する |
 | `TZ` | `Asia/Tokyo`（下記の注意） |
-| `RESEND_API_KEY` / `MAIL_FROM` | **家族を招待する前に必須。** 未設定だとサーバーのコンソールに確認リンクが出るだけで、誰も登録を完了できない |
+| `RESEND_API_KEY` / `MAIL_FROM` | **両方必須。** 片方でも欠けるとメールを送らず、サーバーのログにリンクが出るだけになる |
 
 #### URL は設定しなくてよい（`src/lib/base-url.ts`）
 
@@ -392,6 +392,37 @@ better-auth はこの値をメールのリンクと `callbackURL` の検証に�
 > 従って `BETTER_AUTH_URL=e` を入れたところ、better-auth が
 > `Invalid base URL: e` で起動時に落ちた。**仮の値を許す設計ではない。**
 > いまは値を検証し、どの環境変数が悪いのかを名指しするメッセージにしてある。
+
+#### メール送信を設定しないと「送ったつもり」になる
+
+**2026-11-09 に本番で踏んだ。** `RESEND_API_KEY` を入れずにアカウントを
+作ると、画面には「メールを送りました」と出るのに**1 通も届かない。**
+リンクは Vercel のログに出るだけで、利用者からは見えない。
+
+いまは次の 2 つで見えるようにしてある。
+
+| 対策 | 内容 |
+| --- | --- |
+| 画面 | `MailNotConfigured`（`/signup`、`/login/verify`、`/login/link`）が**未設定のときだけ**警告を出す |
+| ログ | 本番では `console.error` にする（`console.info` だとログに埋もれる） |
+
+`isMailConfigured()` は `process.env` を読むだけなので、**値はビルド時に
+固定される。** Vercel で環境変数を足したら再デプロイが必要
+（Vercel は環境変数を変えると再デプロイを促すので、通常の流れで直る）。
+
+#### Resend の設定手順
+
+1. [resend.com](https://resend.com) でアカウントを作る
+2. **Domains** で送信元ドメインを追加し、DNS レコード（SPF / DKIM）を設定する
+   - ドメインを持っていない場合は、Resend の検証済みテスト送信元
+     （`onboarding@resend.dev`）が使える。**ただし宛先は自分のアカウントの
+     メールアドレスに限られる**ので、家族を招待するには独自ドメインが要る
+3. **API Keys** で鍵を作る（送信のみの権限で足りる）
+4. Vercel の環境変数に入れる
+   - `RESEND_API_KEY` … 作った鍵
+   - `MAIL_FROM` … `Monely <no-reply@example.com>` の形式。**ドメインは
+     検証済みのものにする**（未検証だと Resend が 403 を返す）
+5. 再デプロイ後、`/login/verify` から確認メールを送り直す
 
 #### `TZ` が最大のリスク（NFR-D8 / NFR-O7）
 

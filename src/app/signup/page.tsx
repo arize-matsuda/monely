@@ -1,4 +1,5 @@
 import { AuthLink, AuthShell } from "@/components/ui/auth-shell";
+import { MailNotConfigured } from "@/components/ui/mail-not-configured";
 import { SignUpForm } from "./signup-form";
 
 export const metadata = { title: "アカウントを作る | Monely" };
@@ -14,6 +15,7 @@ export default function SignUpPage() {
         </p>
       }
     >
+      <MailNotConfigured />
       <SignUpForm />
 
       {/*

@@ -1,4 +1,5 @@
 import { AuthLink, AuthShell } from "@/components/ui/auth-shell";
+import { MailNotConfigured } from "@/components/ui/mail-not-configured";
 import { MagicLinkForm } from "./magic-link-form";
 
 export const metadata = { title: "ログインリンクを受け取る | Monely" };
@@ -23,6 +24,7 @@ export default function MagicLinkPage() {
         パスワードを忘れた場合はこちらから。メールに届いたリンクを開くと、
         パスワードなしでログインできます。
       </p>
+      <MailNotConfigured />
       <MagicLinkForm />
     </AuthShell>
   );

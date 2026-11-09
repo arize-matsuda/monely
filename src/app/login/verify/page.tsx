@@ -1,4 +1,5 @@
 import { AuthLink, AuthShell } from "@/components/ui/auth-shell";
+import { MailNotConfigured } from "@/components/ui/mail-not-configured";
 import { ResendForm } from "./resend-form";
 
 export const metadata = { title: "確認メールを再送する | Monely" };
@@ -20,6 +21,7 @@ export default function VerifyPage() {
       <p className="text-sm leading-relaxed text-muted-foreground">
         登録したメールアドレスを入力すると、確認用のリンクを送り直します。
       </p>
+      <MailNotConfigured />
       <ResendForm />
     </AuthShell>
   );
